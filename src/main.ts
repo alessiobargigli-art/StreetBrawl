@@ -10,7 +10,7 @@ root.innerHTML = `
   <main class="shell">
     <header class="hud"><strong>STREETBRAWL</strong><span>combat prototype</span></header>
     <canvas id="game" width="1280" height="720" aria-label="StreetBrawl game canvas"></canvas>
-    <div class="touch-controls" aria-hidden="true"><div class="dpad"><button data-key="ArrowUp">▲</button><div><button data-key="ArrowLeft">◀</button><button data-key="ArrowDown">▼</button><button data-key="ArrowRight">▶</button></div></div><div class="actions"><button data-key="KeyZ">PUNCH</button><button data-key="KeyX">KICK</button></div></div>
+    <div class="touch-controls" aria-hidden="true"><div class="dpad"><button data-key="ArrowUp">▲</button><div><button data-key="ArrowLeft">◀</button><button data-key="ArrowDown">▼</button><button data-key="ArrowRight">▶</button></div></div><div class="actions"><button data-key="Space" class="jump">JUMP</button><button data-key="KeyZ">PUNCH</button><button data-key="KeyX">KICK</button></div></div>
     <section id="install-card" class="install-card" hidden>
       <button id="install-close" class="install-close" aria-label="Chiudi">×</button>
       <img src="/icons/icon.svg" alt="" />
