@@ -2,7 +2,7 @@ import { CHARACTERS, type CharacterId } from '../shared/campaign';
 import type { ServerMessage } from '../shared/protocol';
 import { CoopClient } from './CoopClient';
 
-export interface CoopLobbyOptions { endpoint: string; onBack: () => void; onStarted: () => void }
+export interface CoopLobbyOptions { endpoint: string; onBack: () => void; onStarted: (client: CoopClient) => void }
 
 export class CoopLobby {
   private readonly client: CoopClient;
@@ -25,15 +25,9 @@ export class CoopLobby {
     this.host.querySelector('#coop-join')?.addEventListener('click', () => void this.join((this.host.querySelector<HTMLInputElement>('#coop-code')?.value || '')));
   }
 
-  private bindIdentity(): void {
-    this.host.querySelector<HTMLInputElement>('#coop-name')?.addEventListener('input', (e) => { this.nickname = (e.target as HTMLInputElement).value.trim() || 'PLAYER'; localStorage.setItem('streetbrawl-nickname', this.nickname); });
-  }
-
+  private bindIdentity(): void { this.host.querySelector<HTMLInputElement>('#coop-name')?.addEventListener('input', (e) => { this.nickname = (e.target as HTMLInputElement).value.trim() || 'PLAYER'; localStorage.setItem('streetbrawl-nickname', this.nickname); }); }
   private async create(): Promise<void> { try { this.error(''); const room = await this.client.createRoom(); await this.join(room); } catch (e) { this.error(this.message(e)); } }
-  private async join(room: string): Promise<void> {
-    room = room.trim().toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(room)) { this.error('Inserisci un codice stanza di 6 caratteri.'); return; }
-    try { this.error(''); await this.client.connect(room, this.nickname); this.room = room; this.renderLobby(); history.replaceState(null, '', `?room=${room}`); } catch (e) { this.error(this.message(e)); }
-  }
+  private async join(room: string): Promise<void> { room = room.trim().toUpperCase(); if (!/^[A-Z2-9]{6}$/.test(room)) { this.error('Inserisci un codice stanza di 6 caratteri.'); return; } try { this.error(''); await this.client.connect(room, this.nickname); this.room = room; this.renderLobby(); history.replaceState(null, '', `?room=${room}`); } catch (e) { this.error(this.message(e)); } }
 
   private renderLobby(): void {
     const state = this.client.lobby;
@@ -47,17 +41,8 @@ export class CoopLobby {
     this.updatePlayers(state);
   }
 
-  private updatePlayers(state = this.client.lobby): void {
-    const el = this.host.querySelector<HTMLElement>('#players'); if (!el) return;
-    const bySlot = new Map(state?.players.map((p) => [p.slot, p]));
-    el.innerHTML = [0, 1].map((slot) => { const p = bySlot.get(slot as 0|1); return `<div class="player-slot ${p?.ready ? 'ready' : ''}"><strong>P${slot + 1}</strong><span>${p ? this.escape(p.nickname) : 'IN ATTESA…'}</span><small>${p?.character ? CHARACTERS[p.character].name : 'nessun personaggio'}${p?.ready ? ' · READY' : ''}</small></div>`; }).join('');
-  }
-
-  private onMessage(message: ServerMessage): void {
-    if (message.type === 'lobby') { if (this.host.querySelector('#players')) this.updatePlayers(message); else this.renderLobby(); }
-    if (message.type === 'snapshot' && message.phase === 'playing') { this.host.hidden = true; this.options.onStarted(); }
-    if (message.type === 'error') this.error(message.message);
-  }
+  private updatePlayers(state = this.client.lobby): void { const el = this.host.querySelector<HTMLElement>('#players'); if (!el) return; const bySlot = new Map(state?.players.map((p) => [p.slot, p])); el.innerHTML = [0, 1].map((slot) => { const p = bySlot.get(slot as 0|1); return `<div class="player-slot ${p?.ready ? 'ready' : ''}"><strong>P${slot + 1}</strong><span>${p ? this.escape(p.nickname) : 'IN ATTESA…'}</span><small>${p?.character ? CHARACTERS[p.character].name : 'nessun personaggio'}${p?.ready ? ' · READY' : ''}</small></div>`; }).join(''); }
+  private onMessage(message: ServerMessage): void { if (message.type === 'lobby') { if (this.host.querySelector('#players')) this.updatePlayers(message); else this.renderLobby(); } if (message.type === 'snapshot' && message.phase === 'playing') { this.host.hidden = true; this.options.onStarted(this.client); } if (message.type === 'error') this.error(message.message); }
   private error(text: string): void { const el = this.host.querySelector<HTMLElement>('#coop-error'); if (el) el.textContent = text; }
   private message(e: unknown): string { return e instanceof Error ? e.message : 'Errore multiplayer'; }
   private escape(value: string): string { return value.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!)); }
