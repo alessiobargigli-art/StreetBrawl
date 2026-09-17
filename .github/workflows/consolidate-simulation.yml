@@ -1,0 +1,50 @@
+name: Consolidate authoritative simulation
+
+on:
+  push:
+    branches:
+      - feature/coop-six-stage-campaign
+    paths:
+      - .github/workflows/consolidate-simulation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coop-six-stage-campaign
+          fetch-depth: 0
+      - name: Harden simulation invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/shared/simulation.ts')
+          s = p.read_text()
+          replacements = [
+            ("import type { PlayerInput, PlayerSlot, WorldSnapshot } from './protocol';", "import { PROTOCOL_VERSION, type PlayerInput, type PlayerSlot, type WorldSnapshot } from './protocol';"),
+            ("reserveCharacter(slot:PlayerSlot,c:CharacterId){if(this.state.players.some(p=>p.slot!==slot&&p.character===c))return false;", "reserveCharacter(slot:PlayerSlot,c:CharacterId){if(this.state.phase!=='lobby'||!(c in CHARACTERS)||this.state.players.some(p=>p.slot!==slot&&p.character===c))return false;"),
+            ("setReady(slot:PlayerSlot,ready:boolean){const p=this.state.players.find(p=>p.slot===slot);if(p)p.ready=ready}canStart(){const ps=this.state.players.filter(p=>p.connected);", "setReady(slot:PlayerSlot,ready:boolean){if(this.state.phase!=='lobby')return;const p=this.state.players.find(p=>p.slot===slot);if(p)p.ready=ready}canStart(){if(this.state.phase!=='lobby')return false;const ps=this.state.players.filter(p=>p.connected);"),
+            ("start(){if(!this.canStart())return false;", "start(){if(this.state.phase!=='lobby'||!this.canStart())return false;"),
+            ("applyInput(slot:PlayerSlot,input:PlayerInput){const p=this.state.players.find(p=>p.slot===slot&&p.connected);if(!p||input.seq<=p.lastProcessedInputSeq)return;", "applyInput(slot:PlayerSlot,input:PlayerInput){if(this.state.phase!=='playing'||!Number.isFinite(input.seq)||!Number.isFinite(input.clientTime)||![-1,0,1].includes(input.moveX)||![-1,0,1].includes(input.moveY)||typeof input.punch!=='boolean'||typeof input.kick!=='boolean'||typeof input.jump!=='boolean')return;const p=this.state.players.find(p=>p.slot===slot&&p.connected);if(!p||input.seq<=p.lastProcessedInputSeq)return;"),
+            ("private rightSpawn(worldWidth:number,extra:number){return Math.min(worldWidth-30,this.state.cameraX+VIEW_WIDTH+extra)}", "private rightSpawn(_worldWidth:number,extra:number){return this.state.cameraX+VIEW_WIDTH+extra}"),
+            ("protocol:1,tick:this.state.tick", "protocol:PROTOCOL_VERSION,tick:this.state.tick"),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Missing expected simulation fragment: {old[:100]}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Remove temporary workflow
+        run: rm .github/workflows/consolidate-simulation.yml
+      - name: Commit hardened simulation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/shared/simulation.ts .github/workflows/consolidate-simulation.yml
+          git commit -m "fix: enforce authoritative simulation invariants"
+          git push origin HEAD:feature/coop-six-stage-campaign
