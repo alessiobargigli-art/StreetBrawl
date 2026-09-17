@@ -1,81 +1,32 @@
 import './styles.css';
 import { Game } from './game/Game';
+import { AudioManager, type MusicId } from './audio/AudioManager';
 
-type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
-let installPrompt: InstallPromptEvent | null = null;
-
-const root = document.querySelector<HTMLDivElement>('#app');
-if (!root) throw new Error('Missing #app root');
-root.innerHTML = `
-  <main class="shell">
-    <header class="hud"><strong>STREETBRAWL</strong><span>vertical slice 0.9.1</span><button id="fullscreen" type="button">FULLSCREEN</button></header>
-    <canvas id="game" width="1280" height="720" aria-label="StreetBrawl game canvas"></canvas>
-    <div class="touch-controls" aria-hidden="true">
-      <div id="joystick-zone" class="joystick-zone"><div id="joystick" class="joystick"><div class="joystick-ring"></div><div id="joystick-knob" class="joystick-knob"></div></div></div>
-      <div class="actions"><button data-key="Space" class="jump">JUMP</button><button data-key="KeyZ">PUNCH</button><button data-key="KeyX">KICK</button></div>
-    </div>
-    <section id="install-card" class="install-card" hidden>
-      <button id="install-close" class="install-close" aria-label="Chiudi">×</button>
-      <img src="/icons/icon.svg" alt="" />
-      <div><strong>Installa StreetBrawl</strong><p>Gioca come un'app direttamente dalla Home.</p><div class="install-actions"><button id="install-now">INSTALLA APP</button><button id="install-later">Più tardi</button></div></div>
-    </section>
-  </main>`;
-
-const canvas = document.querySelector<HTMLCanvasElement>('#game');
-if (!canvas) throw new Error('Missing game canvas');
-const game = new Game(canvas);
-game.start();
-
-const heldPointers = new Map<number,string>();
-const releaseActionPointer=(pointerId:number)=>{const code=heldPointers.get(pointerId);if(!code)return;game.setVirtualKey(code,false);heldPointers.delete(pointerId)};
-document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(button => {
-  const code=button.dataset.key!;
-  button.addEventListener('pointerdown',e=>{e.preventDefault();heldPointers.set(e.pointerId,code);button.setPointerCapture(e.pointerId);game.setVirtualKey(code,true)});
-  const end=(e:PointerEvent)=>{e.preventDefault();releaseActionPointer(e.pointerId);if(button.hasPointerCapture(e.pointerId))button.releasePointerCapture(e.pointerId)};
-  button.addEventListener('pointerup',end);button.addEventListener('pointercancel',end);button.addEventListener('lostpointercapture',e=>releaseActionPointer(e.pointerId));
-});
-
-const zone=document.querySelector<HTMLElement>('#joystick-zone')!;
-const joystick=document.querySelector<HTMLElement>('#joystick')!;
-const knob=document.querySelector<HTMLElement>('#joystick-knob')!;
-let joystickPointer:number|null=null;
-let joystickKeys=new Set<string>();
-let joystickCenter={x:0,y:0};
-const setJoystickCenter=(clientX:number,clientY:number)=>{
-  const r=zone.getBoundingClientRect(),jr=joystick.getBoundingClientRect(),half=jr.width/2;
-  const x=Math.max(half,Math.min(r.width-half,clientX-r.left));
-  const y=Math.max(half,Math.min(r.height-half,clientY-r.top));
-  joystick.style.left=`${x}px`;joystick.style.top=`${y}px`;joystickCenter={x:r.left+x,y:r.top+y};
-};
-const releaseJoystick=()=>{for(const k of joystickKeys)game.setVirtualKey(k,false);joystickKeys.clear();knob.style.transform='translate(-50%,-50%)';joystick.classList.remove('active');joystickPointer=null;};
-const moveJoystick=(clientX:number,clientY:number)=>{
-  const r=joystick.getBoundingClientRect(),max=r.width*.32;
-  const dx=clientX-joystickCenter.x,dy=clientY-joystickCenter.y,dist=Math.hypot(dx,dy),scale=dist>max?max/dist:1;
-  const x=dx*scale,y=dy*scale;knob.style.transform=`translate(calc(-50% + ${x}px),calc(-50% + ${y}px))`;
-  const dead=max*.28,next=new Set<string>();
-  if(dist>dead){const angle=Math.atan2(dy,dx),sector=Math.round(angle/(Math.PI/4));const dirs=[['ArrowRight'],['ArrowRight','ArrowDown'],['ArrowDown'],['ArrowLeft','ArrowDown'],['ArrowLeft'],['ArrowLeft','ArrowUp'],['ArrowUp'],['ArrowRight','ArrowUp']];for(const k of dirs[(sector+8)%8])next.add(k)}
-  for(const k of joystickKeys)if(!next.has(k))game.setVirtualKey(k,false);for(const k of next)if(!joystickKeys.has(k))game.setVirtualKey(k,true);joystickKeys=next;
-};
-zone.addEventListener('pointerdown',e=>{if(joystickPointer!==null)return;e.preventDefault();joystickPointer=e.pointerId;setJoystickCenter(e.clientX,e.clientY);joystick.classList.add('active');zone.setPointerCapture(e.pointerId);moveJoystick(e.clientX,e.clientY)});
-window.addEventListener('pointermove',e=>{if(e.pointerId===joystickPointer){e.preventDefault();moveJoystick(e.clientX,e.clientY)}},{capture:true,passive:false});
-const endJoystick=(e:PointerEvent)=>{if(e.pointerId!==joystickPointer)return;e.preventDefault();if(zone.hasPointerCapture(e.pointerId))zone.releasePointerCapture(e.pointerId);releaseJoystick();};
-window.addEventListener('pointerup',endJoystick,{capture:true});window.addEventListener('pointercancel',endJoystick,{capture:true});zone.addEventListener('lostpointercapture',()=>releaseJoystick());
-
-const resetInput=()=>{releaseJoystick();for(const id of [...heldPointers.keys()])releaseActionPointer(id);game.resetInput();};
-window.addEventListener('blur',resetInput);
-document.addEventListener('visibilitychange',()=>{game.setPaused(document.hidden);if(document.hidden)resetInput();});
-window.addEventListener('resize',resetInput);
-window.addEventListener('orientationchange',resetInput);
-
-const fullscreen=document.querySelector<HTMLButtonElement>('#fullscreen')!;
-fullscreen.addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen?.();else await document.exitFullscreen?.()}catch{}});
-
-const card=document.querySelector<HTMLElement>('#install-card')!;
-const hideInstall=()=>{card.hidden=true;};
-window.addEventListener('beforeinstallprompt',(event:Event)=>{event.preventDefault();installPrompt=event as InstallPromptEvent;if(!window.matchMedia('(display-mode: standalone)').matches)card.hidden=false;});
-window.addEventListener('appinstalled',()=>{installPrompt=null;hideInstall();});
-document.querySelector('#install-close')?.addEventListener('click',hideInstall);
-document.querySelector('#install-later')?.addEventListener('click',hideInstall);
-document.querySelector('#install-now')?.addEventListener('click',async()=>{if(!installPrompt)return;await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;hideInstall();});
-
-if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(console.error));
+type InstallPromptEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>};
+type RuntimeSnapshot={stage:1|2;phase:string;enemies:Array<{kind:string;health:number;maxHealth:number}>};
+const VERSION='1.0.0-audio';
+let installPrompt:InstallPromptEvent|null=null;
+const root=document.querySelector<HTMLDivElement>('#app');if(!root)throw new Error('Missing #app root');
+root.innerHTML=`<main class="shell">
+ <section id="splash" class="cover"><div class="panel"><h1>STREETBRAWL</h1><p id="load-status">Preparazione…</p><div class="progress"><i id="load-bar"></i></div><strong id="load-value">0 / 5</strong><div id="load-error" class="load-error" hidden></div><div class="cover-actions"><button id="retry" hidden>RIPROVA</button><button id="silent" hidden>CONTINUA SENZA AUDIO</button><button id="enter" hidden>ENTRA</button></div></div></section>
+ <section id="menu" class="cover" hidden><div class="panel menu-panel"><h1>STREETBRAWL</h1><p>Neon streets. Harbor trouble.</p><small>v${VERSION}</small><button id="play" class="primary">GIOCA</button><label>MUSICA <input id="music-volume" type="range" min="0" max="100"></label><label>EFFETTI <input id="sfx-volume" type="range" min="0" max="100"></label><label class="mute"><input id="mute" type="checkbox"> MUTE</label></div></section>
+ <header class="hud" hidden><strong>STREETBRAWL</strong><span>v${VERSION}</span><button id="fullscreen" type="button">FULLSCREEN</button></header>
+ <canvas id="game" width="1280" height="720" aria-label="StreetBrawl game canvas" hidden></canvas>
+ <div class="touch-controls" hidden aria-hidden="true"><div id="joystick-zone" class="joystick-zone"><div id="joystick" class="joystick"><div class="joystick-ring"></div><div id="joystick-knob" class="joystick-knob"></div></div></div><div class="actions"><button data-key="Space" class="jump">JUMP</button><button data-key="KeyZ">PUNCH</button><button data-key="KeyX">KICK</button></div></div>
+ <section id="install-card" class="install-card" hidden><button id="install-close" class="install-close">×</button><img src="/icons/icon.svg" alt=""><div><strong>Installa StreetBrawl</strong><p>Gioca come un'app direttamente dalla Home.</p><div class="install-actions"><button id="install-now">INSTALLA APP</button><button id="install-later">Più tardi</button></div></div></section>
+</main>`;
+const $=<T extends Element>(q:string)=>document.querySelector<T>(q)!;
+const canvas=$<HTMLCanvasElement>('#game'),audio=new AudioManager(),game=new Game(canvas);let gameStarted=false,audioReady=false,lastScene='',lastEnrage=false;
+const splash=$<HTMLElement>('#splash'),menu=$<HTMLElement>('#menu'),status=$<HTMLElement>('#load-status'),bar=$<HTMLElement>('#load-bar'),value=$<HTMLElement>('#load-value'),error=$<HTMLElement>('#load-error'),enter=$<HTMLButtonElement>('#enter'),retry=$<HTMLButtonElement>('#retry'),silent=$<HTMLButtonElement>('#silent');
+const showMenu=async()=>{splash.hidden=true;menu.hidden=false;await audio.playMusic('menu')};
+const preload=async()=>{retry.hidden=silent.hidden=enter.hidden=true;error.hidden=true;bar.style.width='0%';status.textContent='Download colonna sonora…';const controller=new AbortController(),overall=setTimeout(()=>controller.abort(),90000);try{await audio.preload(p=>{status.textContent=p.status;value.textContent=p.totalBytes&&p.totalBytes>0?`${Math.min(100,Math.round(p.loadedBytes/p.totalBytes*100))}%`:`${p.completed} / ${p.total}`;bar.classList.toggle('indeterminate',p.indeterminate);if(!p.indeterminate&&p.totalBytes)bar.style.width=`${Math.min(100,p.loadedBytes/p.totalBytes*100)}%`;else if(p.completed)bar.style.width=`${p.completed/p.total*100}%`},controller.signal);audioReady=true;bar.classList.remove('indeterminate');bar.style.width='100%';value.textContent='100%';status.textContent='Pronto';enter.hidden=false}catch(e){error.hidden=false;error.textContent=e instanceof Error?e.message:'Errore caricamento audio';status.textContent='Audio non disponibile';retry.hidden=false;silent.hidden=false}finally{clearTimeout(overall)}};
+retry.addEventListener('click',()=>void preload());silent.addEventListener('click',()=>{audio.disable();void showMenu()});enter.addEventListener('click',async()=>{await audio.unlock();await showMenu()});
+const mv=$<HTMLInputElement>('#music-volume'),sv=$<HTMLInputElement>('#sfx-volume'),mute=$<HTMLInputElement>('#mute');mv.value=String(Math.round(audio.settings.musicVolume*100));sv.value=String(Math.round(audio.settings.sfxVolume*100));mute.checked=audio.settings.muted;mv.oninput=()=>audio.setMusicVolume(+mv.value/100);sv.oninput=()=>audio.setSfxVolume(+sv.value/100);mute.onchange=()=>audio.setMuted(mute.checked);
+$('#play').addEventListener('click',async()=>{audio.sfx('confirm');menu.hidden=true;canvas.hidden=false;$('.hud').removeAttribute('hidden');$('.touch-controls').removeAttribute('hidden');if(!gameStarted){game.start();gameStarted=true}await audio.playMusic('stage1')});
+const heldPointers=new Map<number,string>();const releaseActionPointer=(id:number)=>{const code=heldPointers.get(id);if(!code)return;game.setVirtualKey(code,false);heldPointers.delete(id)};document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(button=>{const code=button.dataset.key!;button.addEventListener('pointerdown',e=>{e.preventDefault();heldPointers.set(e.pointerId,code);button.setPointerCapture(e.pointerId);game.setVirtualKey(code,true)});const end=(e:PointerEvent)=>{e.preventDefault();releaseActionPointer(e.pointerId);if(button.hasPointerCapture(e.pointerId))button.releasePointerCapture(e.pointerId)};button.addEventListener('pointerup',end);button.addEventListener('pointercancel',end);button.addEventListener('lostpointercapture',e=>releaseActionPointer(e.pointerId))});
+const zone=$<HTMLElement>('#joystick-zone'),joystick=$<HTMLElement>('#joystick'),knob=$<HTMLElement>('#joystick-knob');let joystickPointer:number|null=null,joystickKeys=new Set<string>(),center={x:0,y:0};const releaseJoystick=()=>{for(const k of joystickKeys)game.setVirtualKey(k,false);joystickKeys.clear();knob.style.transform='translate(-50%,-50%)';joystick.classList.remove('active');joystickPointer=null};const setCenter=(x:number,y:number)=>{const r=zone.getBoundingClientRect(),jr=joystick.getBoundingClientRect(),h=jr.width/2,nx=Math.max(h,Math.min(r.width-h,x-r.left)),ny=Math.max(h,Math.min(r.height-h,y-r.top));joystick.style.left=`${nx}px`;joystick.style.top=`${ny}px`;center={x:r.left+nx,y:r.top+ny}};const move=(x:number,y:number)=>{const r=joystick.getBoundingClientRect(),max=r.width*.32,dx=x-center.x,dy=y-center.y,dist=Math.hypot(dx,dy),scale=dist>max?max/dist:1;knob.style.transform=`translate(calc(-50% + ${dx*scale}px),calc(-50% + ${dy*scale}px))`;const next=new Set<string>();if(dist>max*.28){const sector=Math.round(Math.atan2(dy,dx)/(Math.PI/4)),dirs=[['ArrowRight'],['ArrowRight','ArrowDown'],['ArrowDown'],['ArrowLeft','ArrowDown'],['ArrowLeft'],['ArrowLeft','ArrowUp'],['ArrowUp'],['ArrowRight','ArrowUp']];for(const k of dirs[(sector+8)%8])next.add(k)}for(const k of joystickKeys)if(!next.has(k))game.setVirtualKey(k,false);for(const k of next)if(!joystickKeys.has(k))game.setVirtualKey(k,true);joystickKeys=next};zone.addEventListener('pointerdown',e=>{if(joystickPointer!==null)return;e.preventDefault();joystickPointer=e.pointerId;setCenter(e.clientX,e.clientY);joystick.classList.add('active');zone.setPointerCapture(e.pointerId);move(e.clientX,e.clientY)});window.addEventListener('pointermove',e=>{if(e.pointerId===joystickPointer){e.preventDefault();move(e.clientX,e.clientY)}},{capture:true,passive:false});const endJoy=(e:PointerEvent)=>{if(e.pointerId!==joystickPointer)return;e.preventDefault();if(zone.hasPointerCapture(e.pointerId))zone.releasePointerCapture(e.pointerId);releaseJoystick()};window.addEventListener('pointerup',endJoy,{capture:true});window.addEventListener('pointercancel',endJoy,{capture:true});zone.addEventListener('lostpointercapture',releaseJoystick);
+const resetInput=()=>{releaseJoystick();for(const id of [...heldPointers.keys()])releaseActionPointer(id);game.resetInput()};window.addEventListener('blur',resetInput);document.addEventListener('visibilitychange',()=>{game.setPaused(document.hidden);if(document.hidden){resetInput();audio.pauseForPage()}else void audio.resumeForPage()});window.addEventListener('resize',resetInput);window.addEventListener('orientationchange',resetInput);
+$('#fullscreen').addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen?.();else await document.exitFullscreen?.()}catch{}});
+const card=$<HTMLElement>('#install-card'),hideInstall=()=>card.hidden=true;window.addEventListener('beforeinstallprompt',(e:Event)=>{e.preventDefault();installPrompt=e as InstallPromptEvent;if(!matchMedia('(display-mode: standalone)').matches)card.hidden=false});window.addEventListener('appinstalled',()=>{installPrompt=null;hideInstall()});$('#install-close').addEventListener('click',hideInstall);$('#install-later').addEventListener('click',hideInstall);$('#install-now').addEventListener('click',async()=>{if(!installPrompt)return;await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;hideInstall()});
+const scenePoll=window.setInterval(()=>{if(!gameStarted||!audioReady&&audio.settings.disabled)return;const r=game as unknown as RuntimeSnapshot;let music:MusicId=r.stage===1?'stage1':'stage2';if(r.phase==='boss'||r.phase==='bossIntro')music=r.stage===1?'boss1':'boss2';const scene=`${r.stage}:${r.phase}`;if(scene!==lastScene){if(r.phase==='bossIntro')audio.sfx('bossWarning');if(r.phase==='clear')audio.sfx('go');if(r.phase==='stageTransition')audio.sfx('stageClear');if(r.phase==='complete')audio.sfx('victory');if(r.phase==='gameOver')audio.sfx('gameOver');if(r.phase==='complete'||r.phase==='gameOver')audio.stopMusic();else void audio.playMusic(music);lastScene=scene;lastEnrage=false}const boss=r.enemies?.find(e=>e.kind==='boss');const enraged=!!boss&&boss.health/boss.maxHealth<.5;if(enraged&&!lastEnrage)audio.sfx('enrage');lastEnrage=enraged},120);
+window.addEventListener('pagehide',()=>{clearInterval(scenePoll);audio.dispose()});if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(console.error));void preload();
