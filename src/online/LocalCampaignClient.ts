@@ -9,6 +9,7 @@ export class LocalCampaignClient extends EventTarget {
   private timer?: number;
   private snapshotCounter = 0;
   private inputSeq = 0;
+  private sceneId?: string;
   snapshot?: WorldSnapshot;
 
   constructor(character: CharacterId) {
@@ -38,13 +39,26 @@ export class LocalCampaignClient extends EventTarget {
 
   setPaused(paused: boolean) {
     if (paused && this.simulation.state.phase === 'playing') this.simulation.state.phase = 'paused';
-    else if (!paused && this.simulation.state.phase === 'paused') this.simulation.state.phase = 'playing';
+    else if (!paused && this.simulation.state.phase === 'paused' && !this.sceneId) this.simulation.state.phase = 'playing';
+    this.publishSnapshot();
+  }
+
+  sceneEnter(sceneId: string) {
+    this.sceneId = sceneId;
+    if (this.simulation.state.phase === 'playing') this.simulation.state.phase = 'paused';
+    this.publishSnapshot();
+  }
+
+  sceneReady(sceneId: string) {
+    if (this.sceneId !== sceneId) return;
+    this.sceneId = undefined;
+    if (this.simulation.state.phase === 'paused') this.simulation.state.phase = 'playing';
     this.publishSnapshot();
   }
 
   sendInput(input: Omit<PlayerInput, 'seq' | 'clientTime'>) {
     const seq = ++this.inputSeq;
-    if (this.simulation.state.phase === 'playing') this.simulation.applyInput(this.slot, { ...input, seq, clientTime: Date.now() });
+    this.simulation.applyInput(this.slot, { ...input, seq, clientTime: Date.now() });
     return seq;
   }
 
