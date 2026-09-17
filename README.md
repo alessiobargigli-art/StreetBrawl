@@ -2,17 +2,35 @@
 
 Browser beat 'em up inspired by classic 2.5D arcade brawlers, built as an original game.
 
-## Current vertical slice
+## Vertical slice
 
-- TypeScript + Vite + Canvas 2D
-- Fixed-step 60 Hz game loop
-- 2.5D movement with Y-depth rendering
-- Player movement via arrows
-- Punch (`Z`) and kick (`X`)
-- Basic enemy AI, damage, knockback and health bars
-- Landscape-first responsive layout
-- Touch controls for mobile/tablet
-- Initial PWA manifest
+- TypeScript + Vite + Canvas 2D, fixed-step 60 Hz simulation
+- Two scrolling stages, encounter waves and two bosses
+- Keyboard and floating mobile joystick controls
+- PWA install/fullscreen support
+- Version visible in game: `1.0.0-audio`
+
+## Controls
+
+Desktop: arrows to move, `Z` punch, `X` kick, `Space` jump. Mobile/tablet: floating joystick plus JUMP/PUNCH/KICK.
+
+The startup menu exposes separate music and effects volumes plus global mute. Settings persist in `localStorage`; defaults are music 25% and effects 75%.
+
+## Soundtrack
+
+The audio loader downloads all five tracks before normal menu entry, reports measured byte progress when the server exposes sizes, validates the MP3 metadata, retries failures and offers **RIPROVA** / **CONTINUA SENZA AUDIO**. Audio is unlocked only after the **ENTRA** user gesture.
+
+| Phase | Asset |
+| --- | --- |
+| Menu | `/assets/audio/music/menu.mp3` |
+| Stage 1 — The Streets | `/assets/audio/music/stage-1.mp3` |
+| Bruno | `/assets/audio/music/boss-1.mp3` |
+| Stage 2 — Harbor Docks | `/assets/audio/music/stage-2.mp3` |
+| Dock Master | `/assets/audio/music/boss-2.mp3` |
+
+The service worker uses a StreetBrawl-owned versioned cache, never returns the HTML shell for non-navigation assets, caches successful audio downloads for later/offline sessions and serves cached MP3 byte ranges when requested by the browser audio element. Cache write failure is non-fatal for the current session.
+
+Arcade feedback uses reusable WebAudio synthesis for UI/progression events. The existing combat simulation retains its contact-timed procedural impact sounds; music and progression audio are centralized in `AudioManager`.
 
 ## Run locally
 
@@ -28,13 +46,6 @@ npm run build
 npm run preview
 ```
 
-## Roadmap
+## Audio QA
 
-1. Fighter state machine and proper animation system
-2. Combo chain: punch -> punch -> kick
-3. Hit stun, knockdown, get-up and invulnerability frames
-4. Multiple enemies and encounter waves
-5. Scrolling stage and camera
-6. Sprite/audio asset pipeline
-7. Second local player and gamepad support
-8. Full PWA installation/offline support
+Automated CI verifies the TypeScript/Vite production build. Real-device checks remain separate: first load under throttling, offline reopen after a complete preload, iOS/Android audio unlock, three consecutive musical loops per track, background/resume, portrait/landscape rotation and perceived mix levels.
