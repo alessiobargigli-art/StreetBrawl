@@ -42,6 +42,8 @@ export class CoopClient extends EventTarget {
   reconnectToken = '';
   lobby?: CoopLobbyState;
   snapshot?: WorldSnapshot;
+  activeScene?: string;
+  resumedSession = false;
 
   constructor(private readonly endpoint: string) {
     super();
@@ -95,6 +97,8 @@ export class CoopClient extends EventTarget {
     this.slot = undefined;
     this.snapshot = undefined;
     this.lobby = undefined;
+    this.activeScene = undefined;
+    this.resumedSession = false;
     localStorage.removeItem(SESSION_KEY);
     return this.openSocket(false);
   }
@@ -150,12 +154,17 @@ export class CoopClient extends EventTarget {
           this.reconnectToken = message.reconnectToken;
           this.reconnectUntil = 0;
           this.reconnectAttempt = 0;
+          this.resumedSession = isReconnect;
           this.persistSession();
           finish();
           if (isReconnect) this.dispatchEvent(new Event('reconnected'));
         }
 
         if (message.type === 'lobby') this.lobby = message;
+        if (message.type === 'scene') {
+          if (message.active) this.activeScene = message.sceneId;
+          else if (this.activeScene === message.sceneId) this.activeScene = undefined;
+        }
         if (message.type === 'snapshot') {
           this.snapshot = message;
           const own = this.slot === undefined ? undefined : message.players.find(p => p.slot === this.slot);
@@ -166,6 +175,8 @@ export class CoopClient extends EventTarget {
           if (message.code === 'ROOM_EXPIRED' && isReconnect) {
             this.reconnectToken = '';
             this.reconnectUntil = 0;
+            this.activeScene = undefined;
+            this.resumedSession = false;
             localStorage.removeItem(SESSION_KEY);
             this.dispatchEvent(new Event('reconnect-expired'));
           }
@@ -226,6 +237,8 @@ export class CoopClient extends EventTarget {
       this.inputSeq = 0;
       this.room = '';
       this.reconnectUntil = 0;
+      this.activeScene = undefined;
+      this.resumedSession = false;
       localStorage.removeItem(SESSION_KEY);
     }
   }
