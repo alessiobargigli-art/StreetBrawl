@@ -262,7 +262,7 @@ export class AuthoritativeSimulation {
     };
   }
 
-  private setPlayerState(p: SimPlayer, state: SimPlayerState, action = state) {
+  private setPlayerState(p: SimPlayer, state: SimPlayerState, action: string = state) {
     if (p.state === state && p.action === action) return;
     p.state = state;
     p.action = action;
