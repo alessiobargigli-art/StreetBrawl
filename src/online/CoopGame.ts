@@ -1,59 +1,21 @@
-import type { PlayerInput, WorldSnapshot } from '../shared/protocol';
-import { CHARACTERS } from '../shared/campaign';
+import type { PlayerInput, PlayerSnapshot, WorldSnapshot } from '../shared/protocol';
+import { CHARACTERS, STAGES } from '../shared/campaign';
 import { CoopClient } from './CoopClient';
 
-type Axis = -1 | 0 | 1;
+type Axis=-1|0|1;
+type SpriteKey='alex'|'thug'|'ripper'|'bruno'|'dock-master';
 
-export class CoopGame {
-  private ctx: CanvasRenderingContext2D;
-  private raf = 0;
-  private running = false;
-  private latest?: WorldSnapshot;
-  private previous?: WorldSnapshot;
-  private latestAt = 0;
-  private keys = new Set<string>();
-  private virtual = new Set<string>();
-  private lastSent = '';
-  private lastInputAt = 0;
-
-  constructor(private readonly canvas: HTMLCanvasElement, private readonly client: CoopClient) {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas 2D non disponibile');
-    this.ctx = ctx;
-    client.addEventListener('message', (event) => {
-      const message = (event as CustomEvent).detail;
-      if (message?.type === 'snapshot') { this.previous = this.latest; this.latest = message as WorldSnapshot; this.latestAt = performance.now(); }
-    });
-    window.addEventListener('keydown', this.onKeyDown);
-    window.addEventListener('keyup', this.onKeyUp);
-  }
-
-  start(): void { if (!this.running) { this.running = true; this.loop(); } }
-  stop(): void { this.running = false; cancelAnimationFrame(this.raf); this.keys.clear(); this.virtual.clear(); }
-  setVirtualKey(code: string, down: boolean): void { if (down) this.virtual.add(code); else this.virtual.delete(code); }
-  resetInput(): void { this.keys.clear(); this.virtual.clear(); this.lastSent = ''; }
-  private onKeyDown = (event: KeyboardEvent) => { if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyZ','KeyX'].includes(event.code)) event.preventDefault(); this.keys.add(event.code); };
-  private onKeyUp = (event: KeyboardEvent) => { this.keys.delete(event.code); };
-  private down(code: string): boolean { return this.keys.has(code) || this.virtual.has(code); }
-  private axis(positive: string, negative: string): Axis { return this.down(positive) ? (this.down(negative) ? 0 : 1) : (this.down(negative) ? -1 : 0); }
-  private input(): Omit<PlayerInput, 'seq' | 'clientTime'> { return { moveX: this.axis('ArrowRight','ArrowLeft'), moveY: this.axis('ArrowDown','ArrowUp'), punch: this.down('KeyZ'), kick: this.down('KeyX'), jump: this.down('Space') }; }
-
-  private loop = () => {
-    if (!this.running) return;
-    const now=performance.now(),input=this.input(),signature=JSON.stringify(input);
-    if(signature!==this.lastSent||now-this.lastInputAt>=100){try{this.client.sendInput(input)}catch{}this.lastSent=signature;this.lastInputAt=now}
-    this.render(now);this.raf=requestAnimationFrame(this.loop);
-  };
-
-  private render(now:number):void{
-    const{ctx,canvas}=this;ctx.clearRect(0,0,canvas.width,canvas.height);const snapshot=this.latest;
-    if(!snapshot){ctx.fillStyle='#05070a';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 28px system-ui';ctx.textAlign='center';ctx.fillText('SINCRONIZZAZIONE...',canvas.width/2,canvas.height/2);return}
-    const alpha=Math.min(1,(now-this.latestAt)/(1000/15)),prevPlayers=new Map(this.previous?.players.map(p=>[p.slot,p])),camera=this.previous?this.previous.cameraX+(snapshot.cameraX-this.previous.cameraX)*alpha:snapshot.cameraX;
-    ctx.fillStyle=snapshot.stage<=2?'#10182b':snapshot.stage<=4?'#171522':'#08141b';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#182231';ctx.fillRect(0,430,canvas.width,290);ctx.strokeStyle='#31445b';ctx.lineWidth=2;
-    for(let x=-(camera%160);x<canvas.width;x+=160){ctx.beginPath();ctx.moveTo(x,430);ctx.lineTo(x-100,720);ctx.stroke()}
-    ctx.fillStyle='#7ed8ff';ctx.font='bold 20px system-ui';ctx.textAlign='left';ctx.fillText(`STAGE ${snapshot.stage} · ${snapshot.room}`,24,36);ctx.fillStyle='#b8c7dc';ctx.font='14px system-ui';ctx.fillText(`SERVER TICK ${snapshot.tick}`,24,58);
-    for(const player of snapshot.players){const prev=prevPlayers.get(player.slot),xWorld=prev?prev.x+(player.x-prev.x)*alpha:player.x,y=prev?prev.y+(player.y-prev.y)*alpha:player.y,x=xWorld-camera,own=player.slot===this.client.slot;ctx.save();ctx.translate(x,y-player.z*54);ctx.fillStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.ellipse(0,12,34,11,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=own?'#ffd83d':'#55d68b';ctx.fillRect(-24,-82,48,78);ctx.fillStyle='#f0c7a0';ctx.beginPath();ctx.arc(0,-96,18,0,Math.PI*2);ctx.fill();ctx.strokeStyle=own?'#fff3a0':'#b7ffd0';ctx.lineWidth=4;ctx.strokeRect(-27,-85,54,84);ctx.fillStyle='#fff';ctx.font='bold 14px system-ui';ctx.textAlign='center';const name=player.character?CHARACTERS[player.character].name:player.nickname;ctx.fillText(`${own?'▶ ':''}${name}`,0,-124);ctx.fillStyle='#000';ctx.fillRect(-32,-116,64,7);ctx.fillStyle='#e44';ctx.fillRect(-32,-116,64*(player.health/player.maxHealth),7);ctx.restore()}
-    for(const enemy of snapshot.enemies){const x=enemy.x-camera;ctx.fillStyle='#c43b4b';ctx.fillRect(x-22,enemy.y-72,44,70);ctx.fillStyle='#fff';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText(enemy.kind,x,enemy.y-82)}
-    if(snapshot.phase==='paused'){ctx.fillStyle='rgba(0,0,0,.65)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 46px system-ui';ctx.textAlign='center';ctx.fillText('PAUSA',canvas.width/2,canvas.height/2)}
-  }
+export class CoopGame{
+ private ctx:CanvasRenderingContext2D;private raf=0;private running=false;private latest?:WorldSnapshot;private previous?:WorldSnapshot;private latestAt=0;private keys=new Set<string>();private virtual=new Set<string>();private lastSent='';private lastInputAt=0;private images=new Map<string,HTMLImageElement>();
+ constructor(private readonly canvas:HTMLCanvasElement,private readonly client:CoopClient){const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas 2D non disponibile');this.ctx=ctx;this.loadArt();client.addEventListener('message',e=>{const m=(e as CustomEvent).detail;if(m?.type==='snapshot'){this.previous=this.latest;this.latest=m as WorldSnapshot;this.latestAt=performance.now()}});window.addEventListener('keydown',this.onKeyDown);window.addEventListener('keyup',this.onKeyUp)}
+ start(){if(!this.running){this.running=true;this.loop()}}stop(){this.running=false;cancelAnimationFrame(this.raf);this.keys.clear();this.virtual.clear()}setVirtualKey(c:string,d:boolean){if(d)this.virtual.add(c);else this.virtual.delete(c)}resetInput(){this.keys.clear();this.virtual.clear();this.lastSent=''}
+ private loadArt(){for(const[k,url]of Object.entries({alex:'/assets/fighters/alex.svg',thug:'/assets/fighters/thug.svg',ripper:'/assets/fighters/ripper.svg',bruno:'/assets/fighters/bruno.svg','dock-master':'/assets/fighters/dock-master.svg',stage1:'/assets/stages/stage1-street.svg',stage2:'/assets/stages/stage2-docks.svg'})){const img=new Image();img.src=url;this.images.set(k,img)}}
+ private onKeyDown=(e:KeyboardEvent)=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyZ','KeyX'].includes(e.code))e.preventDefault();this.keys.add(e.code)};private onKeyUp=(e:KeyboardEvent)=>this.keys.delete(e.code);private down(c:string){return this.keys.has(c)||this.virtual.has(c)}private axis(p:string,n:string):Axis{return this.down(p)?(this.down(n)?0:1):(this.down(n)?-1:0)}private input():Omit<PlayerInput,'seq'|'clientTime'>{return{moveX:this.axis('ArrowRight','ArrowLeft'),moveY:this.axis('ArrowDown','ArrowUp'),punch:this.down('KeyZ'),kick:this.down('KeyX'),jump:this.down('Space')}}
+ private loop=()=>{if(!this.running)return;const now=performance.now(),input=this.input(),sig=JSON.stringify(input);if(sig!==this.lastSent||now-this.lastInputAt>=100){try{this.client.sendInput(input)}catch{}this.lastSent=sig;this.lastInputAt=now}this.render(now);this.raf=requestAnimationFrame(this.loop)};
+ private render(now:number){const{ctx,canvas}=this;ctx.clearRect(0,0,canvas.width,canvas.height);const s=this.latest;if(!s){ctx.fillStyle='#05070a';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 28px system-ui';ctx.textAlign='center';ctx.fillText('SINCRONIZZAZIONE...',canvas.width/2,canvas.height/2);return}const a=Math.min(1,(now-this.latestAt)/(1000/15)),pp=new Map(this.previous?.players.map(p=>[p.slot,p])),camera=this.previous?this.previous.cameraX+(s.cameraX-this.previous.cameraX)*a:s.cameraX;this.drawBackground(s.stage,camera);this.drawHud(s);const actors=[...s.players.map(p=>({y:p.y,type:'player' as const,data:p})),...s.enemies.map(e=>({y:e.y,type:'enemy' as const,data:e}))].sort((x,y)=>x.y-y.y);for(const actor of actors)actor.type==='player'?this.drawPlayer(actor.data,pp.get(actor.data.slot),a,camera):this.drawEnemy(actor.data,camera);if(s.phase==='paused')this.overlay('PAUSA');else if(s.phase==='victory')this.overlay('NEON CORNER È SALVA!');else if(s.phase==='game-over')this.overlay('GAME OVER')}
+ private drawBackground(stage:number,camera:number){const{ctx,canvas}=this,img=this.images.get(stage===1?'stage1':stage===5||stage===6?'stage2':'');if(img?.complete&&img.naturalWidth){const scale=canvas.height/img.naturalHeight,w=img.naturalWidth*scale;for(let x=-(camera*.35%w);x<canvas.width;x+=w)ctx.drawImage(img,x,0,w,canvas.height);ctx.fillStyle='rgba(5,8,18,.18)';ctx.fillRect(0,0,canvas.width,canvas.height)}else{const colors=['#11172a','#24131d','#101827','#241b18','#071820','#09121b'];ctx.fillStyle=colors[stage-1]||'#101820';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#202b38';ctx.fillRect(0,430,canvas.width,290)}ctx.strokeStyle='rgba(120,180,220,.22)';ctx.lineWidth=2;for(let x=-(camera%180);x<canvas.width;x+=180){ctx.beginPath();ctx.moveTo(x,455);ctx.lineTo(x-120,720);ctx.stroke()}}
+ private drawHud(s:WorldSnapshot){const{ctx,canvas}=this,stage=STAGES[s.stage-1];ctx.fillStyle='rgba(4,7,12,.78)';ctx.fillRect(0,0,canvas.width,82);ctx.fillStyle='#7ed8ff';ctx.font='bold 21px system-ui';ctx.textAlign='center';ctx.fillText(`${stage.title} — ${stage.subtitle}`,canvas.width/2,28);ctx.fillStyle='#b8c7dc';ctx.font='13px system-ui';ctx.fillText(`STAGE ${s.stage} · ${stage.boss.toUpperCase()} · TICK ${s.tick}`,canvas.width/2,49);const connected=s.players.filter(p=>p.connected);connected.forEach((p,i)=>{const left=i===0?20:canvas.width-300;ctx.fillStyle='#fff';ctx.font='bold 15px system-ui';ctx.textAlign='left';ctx.fillText(`P${p.slot+1} ${p.character?CHARACTERS[p.character].name:p.nickname}  C:${p.continues}`,left,24);ctx.fillStyle='#111';ctx.fillRect(left,36,280,14);ctx.fillStyle=p.slot===this.client.slot?'#ffd83d':'#55d68b';ctx.fillRect(left+2,38,276*Math.max(0,p.health/p.maxHealth),10)});const boss=s.enemies.find(e=>e.kind.startsWith('boss:'));if(boss){ctx.fillStyle='#fff';ctx.font='bold 14px system-ui';ctx.textAlign='center';ctx.fillText(boss.kind.slice(5).toUpperCase(),canvas.width/2,67);ctx.fillStyle='#111';ctx.fillRect(canvas.width/2-170,72,340,8);ctx.fillStyle='#d23a49';ctx.fillRect(canvas.width/2-168,74,336*(boss.health/boss.maxHealth),4)}}
+ private drawPlayer(p:PlayerSnapshot,prev:PlayerSnapshot|undefined,a:number,camera:number){const xw=prev?prev.x+(p.x-prev.x)*a:p.x,y=prev?prev.y+(p.y-prev.y)*a:p.y,x=xw-camera,ctx=this.ctx,own=p.slot===this.client.slot;ctx.save();ctx.translate(x,y-p.z*58);ctx.fillStyle='rgba(0,0,0,.42)';ctx.beginPath();ctx.ellipse(0,8,34,10,0,0,Math.PI*2);ctx.fill();const img=this.images.get('alex');if(img?.complete&&img.naturalWidth){ctx.globalAlpha=p.connected?1:.45;ctx.drawImage(img,0,0,128,160,-64,-154,128,160);if(p.slot===1){ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(60,210,130,.24)';ctx.fillRect(-64,-154,128,160);ctx.globalCompositeOperation='source-over'}}else{ctx.fillStyle=own?'#ffd83d':'#55d68b';ctx.fillRect(-24,-82,48,78)}ctx.strokeStyle=own?'#fff3a0':'#b7ffd0';ctx.lineWidth=own?3:2;ctx.strokeRect(-52,-148,104,150);ctx.fillStyle='#fff';ctx.font='bold 14px system-ui';ctx.textAlign='center';ctx.fillText(`${own?'▶ ':''}${p.character?CHARACTERS[p.character].name:p.nickname}`,0,-166);if(p.state==='attack'){ctx.strokeStyle='#ffd54a';ctx.lineWidth=5;ctx.beginPath();ctx.arc(own?35:-35,-70,34,-.8,.8);ctx.stroke()}ctx.restore()}
+ private drawEnemy(e:WorldSnapshot['enemies'][number],camera:number){const ctx=this.ctx,x=e.x-camera;let key:SpriteKey=e.kind.startsWith('boss:')?(e.kind.includes('Dock Master')?'dock-master':'bruno'):e.kind==='ripper'?'ripper':'thug';const img=this.images.get(key);ctx.save();ctx.translate(x,e.y);ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.ellipse(0,8,34,10,0,0,Math.PI*2);ctx.fill();if(img?.complete&&img.naturalWidth)ctx.drawImage(img,0,0,128,160,-64,-154,128,160);else{ctx.fillStyle=e.kind==='heavy'?'#8d587a':'#c43b4b';ctx.fillRect(-25,-82,50,80)}ctx.fillStyle='#111';ctx.fillRect(-35,-166,70,7);ctx.fillStyle=e.kind.startsWith('boss:')?'#e33':'#f07878';ctx.fillRect(-34,-165,68*Math.max(0,e.health/e.maxHealth),5);ctx.fillStyle='#fff';ctx.font='bold 12px system-ui';ctx.textAlign='center';ctx.fillText(e.kind.startsWith('boss:')?e.kind.slice(5).toUpperCase():e.kind.toUpperCase(),0,-174);ctx.restore()}
+ private overlay(text:string){const{ctx,canvas}=this;ctx.fillStyle='rgba(0,0,0,.68)';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#fff';ctx.font='bold 46px system-ui';ctx.textAlign='center';ctx.fillText(text,canvas.width/2,canvas.height/2)}
 }
