@@ -23,7 +23,19 @@ root.innerHTML = `
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game');
 if (!canvas) throw new Error('Missing game canvas');
-const game = new Game(canvas); game.start();
+const game = new Game(canvas);
+// The illustrated stages have different horizon/curb positions. Keep every fighter's
+// ground contact point on the actual visible pavement instead of allowing movement
+// over walls, storefronts or the harbor background.
+const runtime=game as unknown as {stage:number;player:{y:number};enemies:Array<{y:number}>};
+const clampToStreet=()=>{
+  const lane=runtime.stage===1?{top:505,bottom:610}:{top:465,bottom:610};
+  runtime.player.y=Math.max(lane.top,Math.min(lane.bottom,runtime.player.y));
+  for(const fighter of runtime.enemies)fighter.y=Math.max(lane.top,Math.min(lane.bottom,fighter.y));
+  requestAnimationFrame(clampToStreet);
+};
+clampToStreet();
+game.start();
 
 document.querySelectorAll<HTMLButtonElement>('[data-key]').forEach(button => {
   const code=button.dataset.key!; const press=(down:boolean)=>game.setVirtualKey(code,down);
