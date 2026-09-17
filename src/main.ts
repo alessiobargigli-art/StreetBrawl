@@ -5,7 +5,7 @@ import { CoopGame, type CoopAudioEvent } from './online/CoopGame';
 import { LocalCampaignClient } from './online/LocalCampaignClient';
 import { SoloLobby } from './online/SoloLobby';
 import { StoryOverlay } from './online/StoryOverlay';
-import { INTRO, STAGE_INTROS, STAGE_OUTROS, FINALE, type StoryCard } from './shared/story';
+import { INTRO, STAGE_INTROS, STAGE_OUTROS, FINALE, type StoryScene } from './shared/story';
 import type { CharacterId } from './shared/campaign';
 import type { CoopClient } from './online/CoopClient';
 
@@ -78,7 +78,7 @@ const queueStory = (work: () => Promise<void>) => {
   return storyQueue;
 };
 
-const presentStory = async (client: CampaignClient, sceneId: string, card: StoryCard) => {
+const presentStory = async (client: CampaignClient, sceneId: string, card: StoryScene) => {
   try { client.sceneEnter(sceneId); } catch {}
   await story.show(card);
   try { client.sceneReady(sceneId); } catch {}
