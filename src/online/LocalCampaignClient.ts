@@ -1,6 +1,6 @@
 import { DEFAULT_CONTINUES_PER_PLAYER, type CharacterId } from '../shared/campaign';
 import { AuthoritativeSimulation } from '../shared/simulation';
-import { PROTOCOL_VERSION, SIMULATION_HZ, SNAPSHOT_HZ, type PlayerInput, type PlayerSlot, type WorldSnapshot } from '../shared/protocol';
+import { SIMULATION_HZ, SNAPSHOT_HZ, type PlayerInput, type PlayerSlot, type WorldSnapshot } from '../shared/protocol';
 
 export class LocalCampaignClient extends EventTarget {
   readonly slot: PlayerSlot = 0;
@@ -44,7 +44,7 @@ export class LocalCampaignClient extends EventTarget {
 
   sendInput(input: Omit<PlayerInput, 'seq' | 'clientTime'>) {
     const seq = ++this.inputSeq;
-    this.simulation.applyInput(this.slot, { ...input, seq, clientTime: Date.now() });
+    if (this.simulation.state.phase === 'playing') this.simulation.applyInput(this.slot, { ...input, seq, clientTime: Date.now() });
     return seq;
   }
 
