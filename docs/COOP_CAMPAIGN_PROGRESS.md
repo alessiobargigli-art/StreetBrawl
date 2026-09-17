@@ -9,41 +9,38 @@ Source of truth: `StreetBrawl_prompt_coop_6_livelli.md` supplied for this develo
 
 ## Architecture
 
-StreetBrawl remains TypeScript + Vite + Canvas 2D on the client. The multiplayer target is a server-authoritative Cloudflare Worker + Durable Object per room using WebSocket. Browser-only APIs remain presentation/input/audio concerns. Shared deterministic data/protocol modules will contain character, stage, encounter and network contracts.
+StreetBrawl remains TypeScript + Vite + Canvas 2D on the client. Multiplayer uses the server-authoritative Cloudflare Worker + Durable Object room scaffold with WebSocket. Browser-only APIs remain presentation/input/audio concerns. Shared deterministic campaign, protocol and simulation modules own multiplayer gameplay rules.
 
-The campaign is data-driven: six stages, encounter queues, safe join boundaries, narrative checkpoints, boss definitions and temporary music mappings are configuration rather than hard-coded stage switches.
-
-Network target: fixed simulation tick, sequenced input batches, compact snapshots/deltas, event IDs for one-shot audiovisual events, client interpolation plus limited local-player prediction/reconciliation. No client is authoritative for damage, health, continues, spawns or progression.
+The campaign is data-driven: six stages, sequential encounters, reinforcement waves, narrative landmarks and boss definitions are configuration rather than separate game implementations. The server owns movement, damage, continues, spawns, encounter progression, pause and boss attacks.
 
 ## Delivery phases
 
 - [~] A — regression verification, audio/mute consolidation, tests, shared simulation/presentation boundary.
-- [ ] B — Worker/Durable Object backend, protocol, rooms and two-client verification scenario.
-- [ ] C — Alex/Matt/Elisa/Gaga selection, individual continues, reconnect, authoritative pause.
-- [ ] D — encounter entry lanes, cooperative camera, data-driven level structure; validate one full level.
-- [ ] E — all six stages, bosses and environmental narrative.
-- [ ] F — scenes/finale, audio polish, balance, mobile UX.
+- [~] B — Worker/Durable Object backend, protocol and rooms implemented; deployed two-device verification still required.
+- [~] C — Alex/Matt/Elisa/Gaga reservation, individual continues and authoritative host settings implemented; reconnect UX still requires completion.
+- [~] D — off-screen enemy entry, sequential encounters, reinforcement waves and cooperative camera implemented; full-level browser verification still required.
+- [~] E — six stages configured, imported boss/playable atlases, Roxy/Switch/Rivet/Crane authoritative signature AI and six distinct narrative environments implemented; full campaign verification pending.
+- [ ] F — scenes/finale, unified audio polish, balance and final mobile UX.
 - [ ] G — complete solo + coop campaign verification and release candidate.
 
 Legend: `[x]` implemented and verified; `[~]` in progress/implemented but not fully verified; `[ ]` not complete.
 
-## Current verification
+## Implemented on this branch
 
-### Implemented before this branch
-- Two-stage Canvas beat-em-up vertical slice.
-- Existing mobile floating joystick/actions and PWA shell.
-- Five uploaded soundtrack files and corrected runtime paths.
-- Existing procedural combat/progression SFX.
+- Six long stages: Neon Corner, Night Market, Last Train, Black Circuit Depot, Harbor Run and Last Shipment.
+- Four selectable/reserved playable characters: Alex, Matt, Elisa and Gaga.
+- Imported transparent PNG sprite atlases + JSON metadata for all four playables and Roxy/Switch/Rivet/Crane.
+- Co-op renderer selects character/boss atlas at runtime and preserves animation state between snapshots.
+- Server-authoritative individual continues and host lobby settings.
+- Server-authoritative pause/start controls and lobby host migration.
+- Sequential encounter gating: the next encounter cannot start while the current encounter is active.
+- Reinforcement waves are now executed from campaign data.
+- Enemy entry is from outside the visible camera and remains in `entering-*` until the enemy crosses the visible boundary.
+- Roxy combo, Switch dash, Rivet AOE slam and Crane wide sweep use authoritative telegraph/execute/recover phases.
+- Telegraph overlays expose dangerous areas; Crane's sweep includes a clearly marked co-op safe zone.
+- Distinct campaign backgrounds carry Black Circuit / Neon Corner clues through Night Market, Last Train, Depot, Harbor and cargo ship environments.
 
-### Known gaps confirmed at branch start
-- `package.json` is still version `0.1.0` while UI reports `1.0.0-audio`.
-- CI uses `npm install` and only runs build; no automated tests/smoke.
-- Audio is split: progression SFX use `AudioManager`, while existing `Game` combat synthesis is not yet guaranteed to obey the same global SFX volume/mute control.
-- Scene audio polling currently reads private Game runtime state through an unsafe cast; replace with a public typed presentation snapshot/event boundary.
-- No authoritative multiplayer backend yet.
-- Campaign is not yet six data-driven stages.
-
-## Six-stage campaign target
+## Six-stage campaign
 
 1. NEON CORNER — IL QUARTIERE — Bruno
 2. NIGHT MARKET — IL MERCATO — Roxy
@@ -52,16 +49,7 @@ Legend: `[x]` implemented and verified; `[~]` in progress/implemented but not fu
 5. HARBOR RUN — IL PORTO — Crane
 6. LAST SHIPMENT — LA NAVE CARGO — Dock Master
 
-Story: **StreetBrawl — L'ultima partita**. The Neon Corner historic arcade cabinet is the recurring stolen object; Black Circuit markings, tournament posters, shipment clues, Molo 7 and container 08 must carry the story through the environments.
-
-## Character target
-
-- Alex (uomo): balanced.
-- Matt: agile, lower endurance.
-- Elisa: durable/heavy, slower recovery.
-- Gaga (uomo): kick specialist, slightly longer reach.
-
-Character reservation is authoritative in online rooms; duplicates are not allowed within the same room.
+Story: **StreetBrawl — L'ultima partita**. The Neon Corner historic arcade cabinet is the recurring stolen object; Black Circuit markings, tournament posters, shipment clues, Molo 7 and container 08 carry the story through the environments.
 
 ## Audio mapping
 
@@ -69,11 +57,21 @@ Existing files are preserved:
 - `select-your-hero.mp3`: menu/selection.
 - `neon-city-dusk.mp3`: Stage 1.
 - `three-note-riff.mp3`: Bruno.
-- `harbor-arpeggio.mp3`: Stage 5.
+- `harbor-arpeggio.mp3`: Stage 5 target mapping.
 - `final-boss-battle.mp3`: Dock Master.
 
-Missing stage/boss themes will use documented temporary mappings until original tracks are supplied. Development must not wait for those tracks.
+Missing stage/boss themes use documented temporary mappings until original tracks are supplied. Development does not wait for those tracks.
+
+## Remaining acceptance work
+
+- Replace the placeholder/unverified Worker endpoint with an explicitly configured deployed backend URL before claiming public online play.
+- Exercise create/join/reconnect from two independent browser/device sessions under latency/jitter/drop.
+- Add local prediction/reconciliation for the controlled player and compact/event-based network payload improvements.
+- Complete reconnect UI/grace flow and safe-boundary late join.
+- Consolidate procedural combat SFX and soundtrack controls behind one mute/volume policy and prevent duplicate predicted/confirmed SFX.
+- Add lockfile + `npm ci`, automated deterministic simulation tests and browser smoke coverage.
+- Complete intro/inter-stage/finale presentation, balance and real mobile landscape/safe-area verification.
 
 ## Verification policy
 
-Do not mark public online multiplayer as verified until a deployed backend has been exercised from separate clients. Keep automatic tests, emulated-browser tests and real-device tests distinct. The PR must remain unmerged until the requested acceptance work is complete or remaining external provisioning blockers are explicitly documented.
+Do not mark public online multiplayer as verified until a deployed backend has been exercised from separate clients. Keep automatic tests, emulated-browser tests and real-device tests distinct. The PR remains unmerged until acceptance work is complete or remaining external provisioning blockers are explicitly documented.
