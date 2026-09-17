@@ -1,6 +1,6 @@
 import { GameRoom } from './room';
 export { GameRoom };
-interface Env { ROOMS: DurableObjectNamespace<GameRoom>; }
+interface Env { ROOMS: DurableObjectNamespace; }
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'};
 const json=(value:unknown,status=200)=>Response.json(value,{status,headers:cors});
 function roomCode(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',bytes=crypto.getRandomValues(new Uint8Array(6));return Array.from(bytes,b=>alphabet[b%alphabet.length]).join('');}
