@@ -1,7 +1,7 @@
 const PREFIX='streetbrawl-';
-const CACHE=`${PREFIX}v5-audio`;
+const CACHE=`${PREFIX}v6-audio-assets`;
 const CORE=['/','/manifest.webmanifest','/icons/icon.svg','/assets/fighters/alex.svg','/assets/fighters/thug.svg','/assets/fighters/ripper.svg','/assets/fighters/bruno.svg','/assets/fighters/dock-master.svg','/assets/stages/stage1-street.svg','/assets/stages/stage2-docks.svg'];
-const AUDIO=['/assets/audio/music/menu.mp3','/assets/audio/music/stage-1.mp3','/assets/audio/music/boss-1.mp3','/assets/audio/music/stage-2.mp3','/assets/audio/music/boss-2.mp3'];
+const AUDIO=['/assets/audio/music/select-your-hero.mp3','/assets/audio/music/three-note-riff.mp3','/assets/audio/music/neon-city-dusk.mp3','/assets/audio/music/harbor-arpeggio.mp3','/assets/audio/music/final-boss-battle.mp3'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 async function rangeResponse(request){const cached=await caches.match(new Request(request.url));if(!cached)return fetch(request);const range=request.headers.get('range');if(!range)return cached;const bytes=await cached.arrayBuffer(),m=/bytes=(\d+)-(\d*)/.exec(range);if(!m)return new Response(null,{status:416});const start=Number(m[1]),end=m[2]?Math.min(Number(m[2]),bytes.byteLength-1):bytes.byteLength-1;if(start>end||start>=bytes.byteLength)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${bytes.byteLength}`}});return new Response(bytes.slice(start,end+1),{status:206,headers:{'Content-Type':cached.headers.get('Content-Type')||'audio/mpeg','Content-Length':String(end-start+1),'Content-Range':`bytes ${start}-${end}/${bytes.byteLength}`,'Accept-Ranges':'bytes'}})}
