@@ -1,0 +1,54 @@
+name: Import sprite atlases
+
+on:
+  push:
+    branches:
+      - feature/coop-six-stage-campaign
+    paths:
+      - streetbrawl_new_sprite_atlases.zip
+      - .github/workflows/import-sprite-atlases.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coop-six-stage-campaign
+      - name: Extract and place atlases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f streetbrawl_new_sprite_atlases.zip
+          rm -rf .sprite-import
+          mkdir .sprite-import
+          unzip -q streetbrawl_new_sprite_atlases.zip -d .sprite-import
+          SRC=.sprite-import/streetbrawl_assets
+          mkdir -p public/assets/fighters/coop public/assets/fighters/bosses
+          for name in alex matt elisa gaga; do
+            test -f "$SRC/$name.png"
+            test -f "$SRC/$name.json"
+            cp "$SRC/$name.png" "public/assets/fighters/coop/$name.png"
+            cp "$SRC/$name.json" "public/assets/fighters/coop/$name.json"
+          done
+          for name in roxy switch rivet crane; do
+            test -f "$SRC/$name.png"
+            test -f "$SRC/$name.json"
+            cp "$SRC/$name.png" "public/assets/fighters/bosses/$name.png"
+            cp "$SRC/$name.json" "public/assets/fighters/bosses/$name.json"
+          done
+          rm -rf .sprite-import streetbrawl_new_sprite_atlases.zip
+          git rm .github/workflows/import-sprite-atlases.yml
+      - name: Commit imported assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add public/assets/fighters/coop public/assets/fighters/bosses streetbrawl_new_sprite_atlases.zip || true
+          git diff --cached --stat
+          git commit -m "feat: install supplied playable and boss sprite atlases"
+          git push origin HEAD:feature/coop-six-stage-campaign
