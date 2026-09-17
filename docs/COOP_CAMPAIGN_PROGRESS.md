@@ -16,7 +16,8 @@ The campaign is data-driven: six stages, sequential encounters, reinforcement wa
 ## Feature implementation status
 
 - [x] Six-stage campaign structure and long scrolling stages.
-- [x] Solo entry point preserved.
+- [x] Solo and co-op now share the six-stage authoritative campaign simulation.
+- [x] Solo character selection for Alex, Matt, Elisa and Gaga.
 - [x] Co-op room create/join/link flow for up to two players.
 - [x] Alex, Matt, Elisa and Gaga selection with authoritative reservation/no duplicates.
 - [x] Host-configurable individual continues.
@@ -34,6 +35,17 @@ The campaign is data-driven: six stages, sequential encounters, reinforcement wa
 - [x] Browser build CI plus authoritative Worker/shared-simulation typecheck added.
 
 `[x]` here means the requested feature has an implementation in the branch. It does **not** mean every item has passed release-candidate consolidation or real-device/network acceptance.
+
+## Independent blocker remediation
+
+The independent release-readiness review identified four blockers. The branch now contains targeted fixes for each:
+
+- **B01 repeated co-op game construction:** lobby-to-game transition is idempotent and `CoopGame.stop()` detaches its client listener.
+- **B02 paused room after host loss:** the original host keeps authority during reconnect grace; after grace expires, the remaining connected player becomes host and can resume.
+- **B03 protocol/phase validation:** Worker messages are runtime-validated, lobby-only commands are phase-gated, gameplay input is accepted only while playing, and the shared simulation now enforces the same core invariants.
+- **B04 solo campaign mismatch:** `GIOCA SOLO` now selects one of the four protagonists and runs the same six-stage `AuthoritativeSimulation` locally through `LocalCampaignClient` and the shared campaign renderer.
+
+The simulation hardening pass also removes the right-edge clamp that could spawn reinforcements inside the viewport and uses the shared protocol version constant in snapshots.
 
 ## Six-stage campaign
 
