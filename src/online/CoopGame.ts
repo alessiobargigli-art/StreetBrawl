@@ -364,7 +364,9 @@ export class CoopGame extends EventTarget {
     this.shadow();
     ctx.save();
     ctx.scale(player.facing, 1);
-    if (!this.drawAtlas(key, player.state, player.action, player.actionStartedTick, now, 1.35, snapshot)) this.drawLegacy('alex');
+    if (!this.drawAtlas(key, player.state, player.action, player.actionStartedTick, now, 1.35, snapshot)) {
+      this.drawLegacy('alex', player.state, player.action, player.actionStartedTick, now, snapshot);
+    }
     ctx.restore();
     ctx.strokeStyle = own ? '#fff3a0' : '#b7ffd0'; ctx.lineWidth = own ? 3 : 2;
     ctx.beginPath(); ctx.ellipse(0, 4, 42, 12, 0, 0, Math.PI * 2); ctx.stroke();
@@ -388,7 +390,7 @@ export class CoopGame extends EventTarget {
       this.drawAtlas(bossName, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
     if (!imported) {
       const key = enemy.kind.startsWith('boss:') ? (bossName === 'dock-master' ? 'dock-master' : 'bruno') : enemy.kind === 'ripper' ? 'ripper' : 'thug';
-      this.drawLegacy(key);
+      this.drawLegacy(key, enemy.state, enemy.action, enemy.actionStartedTick, now, snapshot);
     }
     ctx.restore();
     ctx.fillStyle = '#111'; ctx.fillRect(-35, -166, 70, 7);
@@ -405,13 +407,29 @@ export class CoopGame extends EventTarget {
     ctx.beginPath(); ctx.ellipse(0, 8, 34, 10, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  private drawLegacy(key: string) {
+  private drawLegacy(key: string, state: string, action: string, actionStartedTick: number, now: number, snapshot: WorldSnapshot) {
     const image = this.images.get(key);
-    if (image?.complete && image.naturalWidth) {
-      this.ctx.drawImage(image, 0, 0, 128, 160, -64, -154, 128, 160);
-      return true;
-    }
-    return false;
+    if (!image?.complete || !image.naturalWidth) return false;
+    const frameWidth = image.naturalWidth >= 1024 ? image.naturalWidth / 8 : 128;
+    const frameHeight = image.naturalHeight || 128;
+    const tickElapsed = Math.max(0, snapshot.tick - actionStartedTick) * (1000 / SIMULATION_HZ);
+    const interpolationElapsed = snapshot.phase === 'paused' ? 0 : Math.max(0, now - this.latestAt);
+    const elapsed = tickElapsed + interpolationElapsed;
+    const frame = this.legacyFrame(state, action, elapsed);
+    this.ctx.drawImage(image, frame * frameWidth, 0, frameWidth, frameHeight, -64, -154, 128, 160);
+    return true;
+  }
+
+  private legacyFrame(state: string, action: string, elapsed: number) {
+    if (state === 'ko' || state === 'down') return 6;
+    if (state === 'getup') return 7;
+    if (state === 'hurt' || state === 'recover') return 5;
+    if (state.startsWith('telegraph-')) return 4;
+    if (state.startsWith('special-')) return Math.floor(elapsed / 90) % 2 ? 3 : 2;
+    if (action === 'kick') return 4;
+    if (action === 'punch' || state === 'attack') return elapsed < 90 ? 2 : 3;
+    if (state === 'walk' || state.startsWith('entering')) return Math.floor(elapsed / 130) % 2;
+    return 0;
   }
 
   private drawAtlas(key: string, state: string, action: string, actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
