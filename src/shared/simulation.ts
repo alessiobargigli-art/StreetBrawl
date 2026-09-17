@@ -1,186 +1,32 @@
-import { DEFAULT_CONTINUES_PER_PLAYER, STAGES, type CharacterId, type StageId } from './campaign';
+import { CHARACTERS, DEFAULT_CONTINUES_PER_PLAYER, STAGES, type CharacterId, type StageId } from './campaign';
 import type { PlayerInput, PlayerSlot, WorldSnapshot } from './protocol';
-
-export type SimPlayerState = 'idle' | 'walk' | 'attack' | 'jump' | 'hurt' | 'down' | 'ko';
-
-export interface SimPlayer {
-  slot: PlayerSlot;
-  nickname: string;
-  character: CharacterId | null;
-  x: number;
-  y: number;
-  z: number;
-  health: number;
-  maxHealth: number;
-  continues: number;
-  state: SimPlayerState;
-  ready: boolean;
-  connected: boolean;
-  lastProcessedInputSeq: number;
-}
-
-export interface SimEnemy {
-  id: number;
-  kind: string;
-  x: number;
-  y: number;
-  z: number;
-  health: number;
-  maxHealth: number;
-  state: string;
-}
-
-export interface SimulationState {
-  tick: number;
-  stage: StageId;
-  phase: 'lobby' | 'playing' | 'paused' | 'stage-clear' | 'victory' | 'game-over';
-  cameraX: number;
-  players: SimPlayer[];
-  enemies: SimEnemy[];
-}
-
-const DT = 1 / 30;
-const WALK_SPEED = 230;
-const LANE_TOP = 470;
-const LANE_BOTTOM = 650;
-const VIEW_WIDTH = 1280;
-
-export class AuthoritativeSimulation {
-  readonly state: SimulationState;
-
-  constructor(private readonly room: string, continues = DEFAULT_CONTINUES_PER_PLAYER) {
-    this.state = { tick: 0, stage: 1, phase: 'lobby', cameraX: 0, players: [], enemies: [] };
-    this.defaultContinues = continues;
-  }
-
-  private defaultContinues: number;
-
-  addPlayer(slot: PlayerSlot, nickname: string): SimPlayer {
-    const existing = this.state.players.find((p) => p.slot === slot);
-    if (existing) {
-      existing.connected = true;
-      existing.nickname = nickname;
-      return existing;
-    }
-    const player: SimPlayer = {
-      slot, nickname, character: null, x: 220 + slot * 90, y: 560 + slot * 35, z: 0,
-      health: 100, maxHealth: 100, continues: this.defaultContinues, state: 'idle',
-      ready: false, connected: true, lastProcessedInputSeq: -1,
-    };
-    this.state.players.push(player);
-    return player;
-  }
-
-  removePlayer(slot: PlayerSlot): void {
-    const player = this.state.players.find((p) => p.slot === slot);
-    if (player) player.connected = false;
-  }
-
-  reserveCharacter(slot: PlayerSlot, character: CharacterId): boolean {
-    if (this.state.players.some((p) => p.slot !== slot && p.character === character)) return false;
-    const player = this.state.players.find((p) => p.slot === slot);
-    if (!player) return false;
-    player.character = character;
-    return true;
-  }
-
-  setReady(slot: PlayerSlot, ready: boolean): void {
-    const player = this.state.players.find((p) => p.slot === slot);
-    if (player) player.ready = ready;
-  }
-
-  canStart(): boolean {
-    const connected = this.state.players.filter((p) => p.connected);
-    return connected.length > 0 && connected.every((p) => p.ready && p.character !== null);
-  }
-
-  start(): boolean {
-    if (!this.canStart()) return false;
-    this.state.phase = 'playing';
-    return true;
-  }
-
-  applyInput(slot: PlayerSlot, input: PlayerInput): void {
-    if (this.state.phase !== 'playing') return;
-    const player = this.state.players.find((p) => p.slot === slot && p.connected);
-    if (!player || input.seq <= player.lastProcessedInputSeq || player.state === 'ko') return;
-    player.lastProcessedInputSeq = input.seq;
-
-    const diagonal = input.moveX !== 0 && input.moveY !== 0 ? Math.SQRT1_2 : 1;
-    player.x += input.moveX * WALK_SPEED * DT * diagonal;
-    player.y += input.moveY * WALK_SPEED * DT * diagonal;
-    const stage = STAGES[this.state.stage - 1];
-    player.x = Math.max(0, Math.min(stage.worldWidth, player.x));
-    player.y = Math.max(LANE_TOP, Math.min(LANE_BOTTOM, player.y));
-
-    if (input.jump && player.z === 0) {
-      player.z = 1;
-      player.state = 'jump';
-    } else if (input.punch || input.kick) {
-      player.state = 'attack';
-    } else if (input.moveX || input.moveY) {
-      player.state = 'walk';
-    } else {
-      player.state = 'idle';
-    }
-  }
-
-  tick(): void {
-    if (this.state.phase !== 'playing') return;
-    this.state.tick++;
-    for (const player of this.state.players) {
-      if (player.z > 0) {
-        player.z = Math.max(0, player.z - 0.12);
-        if (player.z === 0 && player.state === 'jump') player.state = 'idle';
-      }
-    }
-    const active = this.state.players.filter((p) => p.connected && p.state !== 'ko');
-    const leadX = active.length ? Math.max(...active.map((p) => p.x)) : 0;
-    const stage = STAGES[this.state.stage - 1];
-    this.state.cameraX = Math.max(0, Math.min(stage.worldWidth - VIEW_WIDTH, leadX - VIEW_WIDTH * 0.42));
-  }
-
-  damagePlayer(slot: PlayerSlot, damage: number): void {
-    const player = this.state.players.find((p) => p.slot === slot);
-    if (!player || player.state === 'ko') return;
-    player.health = Math.max(0, player.health - Math.max(0, damage));
-    if (player.health > 0) {
-      player.state = 'hurt';
-      return;
-    }
-    if (player.continues > 0) {
-      player.continues--;
-      player.health = player.maxHealth;
-      player.state = 'idle';
-      player.z = 0;
-    } else {
-      player.state = 'ko';
-      if (this.state.players.filter((p) => p.connected).every((p) => p.state === 'ko')) this.state.phase = 'game-over';
-    }
-  }
-
-  advanceStage(): void {
-    if (this.state.stage === 6) {
-      this.state.phase = 'victory';
-      return;
-    }
-    this.state.stage = (this.state.stage + 1) as StageId;
-    this.state.cameraX = 0;
-    this.state.enemies = [];
-    for (const player of this.state.players) {
-      player.x = 220 + player.slot * 90;
-      player.y = 560 + player.slot * 35;
-      player.z = 0;
-      if (player.state !== 'ko') player.state = 'idle';
-    }
-  }
-
-  snapshot(serverTime = Date.now()): WorldSnapshot {
-    return {
-      type: 'snapshot', protocol: 1, tick: this.state.tick, serverTime, room: this.room,
-      stage: this.state.stage, phase: this.state.phase, cameraX: this.state.cameraX,
-      players: this.state.players.map((p) => ({ ...p })),
-      enemies: this.state.enemies.map((e) => ({ ...e })),
-    };
-  }
+export type SimPlayerState='idle'|'walk'|'attack'|'jump'|'hurt'|'down'|'ko';
+export interface SimPlayer{slot:PlayerSlot;nickname:string;character:CharacterId|null;x:number;y:number;z:number;health:number;maxHealth:number;continues:number;state:SimPlayerState;ready:boolean;connected:boolean;lastProcessedInputSeq:number}
+export interface SimEnemy{id:number;kind:string;x:number;y:number;z:number;health:number;maxHealth:number;state:string}
+export interface SimulationState{tick:number;stage:StageId;phase:'lobby'|'playing'|'paused'|'stage-clear'|'victory'|'game-over';cameraX:number;players:SimPlayer[];enemies:SimEnemy[]}
+type HeldInput={moveX:-1|0|1;moveY:-1|0|1;punch:boolean;kick:boolean;jump:boolean};type EnemyRuntime={attackCooldown:number;hitCooldown:number;enterTicks:number};
+const DT=1/30,WALK_SPEED=230,LANE_TOP=470,LANE_BOTTOM=650,VIEW_WIDTH=1280,ENEMY_SPEED=105;const EMPTY:HeldInput={moveX:0,moveY:0,punch:false,kick:false,jump:false};
+export class AuthoritativeSimulation{
+ readonly state:SimulationState;private defaultContinues:number;private inputs=new Map<PlayerSlot,HeldInput>();private attackCooldown=new Map<PlayerSlot,number>();private jumpTicks=new Map<PlayerSlot,number>();private enemyRuntime=new Map<number,EnemyRuntime>();private triggered=new Set<string>();private nextEnemyId=1;private bossSpawned=false;private stageClearTicks=0;
+ constructor(private readonly room:string,continues=DEFAULT_CONTINUES_PER_PLAYER){this.state={tick:0,stage:1,phase:'lobby',cameraX:0,players:[],enemies:[]};this.defaultContinues=continues}
+ addPlayer(slot:PlayerSlot,nickname:string):SimPlayer{const old=this.state.players.find(p=>p.slot===slot);if(old){old.connected=true;old.nickname=nickname;return old}const p:SimPlayer={slot,nickname,character:null,x:220+slot*90,y:560+slot*35,z:0,health:100,maxHealth:100,continues:this.defaultContinues,state:'idle',ready:false,connected:true,lastProcessedInputSeq:-1};this.state.players.push(p);this.inputs.set(slot,{...EMPTY});return p}
+ removePlayer(slot:PlayerSlot):void{const p=this.state.players.find(p=>p.slot===slot);if(p)p.connected=false;this.inputs.delete(slot)}
+ reserveCharacter(slot:PlayerSlot,c:CharacterId):boolean{if(this.state.players.some(p=>p.slot!==slot&&p.character===c))return false;const p=this.state.players.find(p=>p.slot===slot);if(!p)return false;p.character=c;return true}
+ setReady(slot:PlayerSlot,ready:boolean):void{const p=this.state.players.find(p=>p.slot===slot);if(p)p.ready=ready}
+ canStart():boolean{const ps=this.state.players.filter(p=>p.connected);return ps.length>0&&ps.every(p=>p.ready&&p.character!==null)}
+ start():boolean{if(!this.canStart())return false;this.resetStageRuntime();this.state.phase='playing';return true}
+ applyInput(slot:PlayerSlot,input:PlayerInput):void{const p=this.state.players.find(p=>p.slot===slot&&p.connected);if(!p||input.seq<=p.lastProcessedInputSeq)return;p.lastProcessedInputSeq=input.seq;this.inputs.set(slot,{moveX:input.moveX,moveY:input.moveY,punch:input.punch,kick:input.kick,jump:input.jump})}
+ tick():void{if(this.state.phase!=='playing')return;this.state.tick++;for(const p of this.state.players)this.tickPlayer(p);this.spawnEncounters();this.tickEnemies();this.resolvePlayerAttacks();this.removeDefeated();this.updateCamera();this.checkProgression()}
+ private tickPlayer(p:SimPlayer):void{if(!p.connected||p.state==='ko')return;const i=this.inputs.get(p.slot)??EMPTY,cd=Math.max(0,(this.attackCooldown.get(p.slot)??0)-1);this.attackCooldown.set(p.slot,cd);let jt=this.jumpTicks.get(p.slot)??0;if(jt>0){jt--;this.jumpTicks.set(p.slot,jt);p.z=Math.sin((1-jt/24)*Math.PI)}else if(i.jump){this.jumpTicks.set(p.slot,24);p.z=.01}else p.z=0;const stats=p.character?CHARACTERS[p.character]:CHARACTERS.alex,speed=WALK_SPEED*(.82+stats.speed*.06),diag=i.moveX&&i.moveY?Math.SQRT1_2:1;p.x+=i.moveX*speed*DT*diag;p.y+=i.moveY*speed*DT*diag;const stage=STAGES[this.state.stage-1];p.x=Math.max(this.state.cameraX+45,Math.min(stage.worldWidth,p.x));p.y=Math.max(LANE_TOP,Math.min(LANE_BOTTOM,p.y));if((i.punch||i.kick)&&cd===0){p.state='attack';this.attackCooldown.set(p.slot,i.kick?16:11)}else if(p.z>0)p.state='jump';else if(i.moveX||i.moveY)p.state='walk';else if(cd===0&&p.state!=='hurt')p.state='idle'}
+ private spawnEncounters():void{const stage=STAGES[this.state.stage-1],ps=this.state.players.filter(p=>p.connected&&p.state!=='ko');if(!ps.length)return;const lead=Math.max(...ps.map(p=>p.x));for(const encounter of stage.encounters){if(this.triggered.has(encounter.id)||lead<encounter.distance)continue;this.triggered.add(encounter.id);let offset=0;for(const group of encounter.composition)for(let n=0;n<group.count;n++){this.spawnEnemy(group.enemy,Math.min(stage.worldWidth-80,this.state.cameraX+VIEW_WIDTH+110+offset),500+(this.nextEnemyId*37)%135);offset+=65}break}if(stage.encounters.every(e=>this.triggered.has(e.id))&&!this.bossSpawned&&!this.state.enemies.length&&lead>stage.worldWidth-1450){this.bossSpawned=true;this.spawnEnemy(`boss:${stage.boss}`,Math.min(stage.worldWidth-100,this.state.cameraX+VIEW_WIDTH+160),555,true)}}
+ private spawnEnemy(kind:string,x:number,y:number,boss=false):void{const id=this.nextEnemyId++,hp=boss?220:kind==='heavy'?100:kind==='ripper'?70:55;this.state.enemies.push({id,kind,x,y,z:0,health:hp,maxHealth:hp,state:'entering'});this.enemyRuntime.set(id,{attackCooldown:30,hitCooldown:0,enterTicks:24})}
+ private tickEnemies():void{for(const e of this.state.enemies){const rt=this.enemyRuntime.get(e.id)!;rt.attackCooldown=Math.max(0,rt.attackCooldown-1);rt.hitCooldown=Math.max(0,rt.hitCooldown-1);if(rt.enterTicks>0){rt.enterTicks--;e.x-=ENEMY_SPEED*1.4*DT;e.state='entering';continue}const ps=this.state.players.filter(p=>p.connected&&p.state!=='ko');if(!ps.length)continue;let t=ps[0];for(const p of ps)if(Math.hypot(p.x-e.x,(p.y-e.y)*1.5)<Math.hypot(t.x-e.x,(t.y-e.y)*1.5))t=p;const dx=t.x-e.x,dy=t.y-e.y,dist=Math.hypot(dx,dy*1.5);if(dist>76){const len=Math.hypot(dx,dy)||1;e.x+=dx/len*ENEMY_SPEED*DT;e.y+=dy/len*ENEMY_SPEED*.72*DT;e.y=Math.max(LANE_TOP,Math.min(LANE_BOTTOM,e.y));e.state='walk'}else if(rt.attackCooldown===0){e.state='attack';rt.attackCooldown=e.kind.startsWith('boss:')?24:38;this.damagePlayer(t.slot,e.kind.startsWith('boss:')?14:e.kind==='heavy'?11:7)}else e.state='idle'}}
+ private resolvePlayerAttacks():void{for(const p of this.state.players){if(!p.connected||p.state!=='attack')continue;const i=this.inputs.get(p.slot)??EMPTY;if(!i.punch&&!i.kick)continue;const stats=p.character?CHARACTERS[p.character]:CHARACTERS.alex,range=64+stats.reach*8,damage=(i.kick?13:9)+stats.power*2;let target:SimEnemy|undefined,best=Infinity;for(const e of this.state.enemies){const rt=this.enemyRuntime.get(e.id);if(!rt||rt.hitCooldown>0)continue;const d=Math.hypot(e.x-p.x,(e.y-p.y)*1.6);if(d<range&&d<best){target=e;best=d}}if(target){target.health=Math.max(0,target.health-damage);target.state=target.health?'hurt':'down';this.enemyRuntime.get(target.id)!.hitCooldown=8;target.x+=Math.sign(target.x-p.x||1)*(i.kick?18:10)}}}
+ private removeDefeated():void{for(const e of this.state.enemies)if(e.health<=0)this.enemyRuntime.delete(e.id);this.state.enemies=this.state.enemies.filter(e=>e.health>0)}
+ private updateCamera():void{const ps=this.state.players.filter(p=>p.connected&&p.state!=='ko'),lead=ps.length?Math.max(...ps.map(p=>p.x)):0,stage=STAGES[this.state.stage-1];this.state.cameraX=Math.max(0,Math.min(stage.worldWidth-VIEW_WIDTH,lead-VIEW_WIDTH*.42));for(const p of ps)p.x=Math.max(this.state.cameraX+45,p.x)}
+ private checkProgression():void{if(this.bossSpawned&&!this.state.enemies.length){this.stageClearTicks++;if(this.stageClearTicks>45){if(this.state.stage===6)this.state.phase='victory';else{this.advanceStage();this.state.phase='playing'}}}else this.stageClearTicks=0;if(this.state.players.filter(p=>p.connected).length&&this.state.players.filter(p=>p.connected).every(p=>p.state==='ko'))this.state.phase='game-over'}
+ damagePlayer(slot:PlayerSlot,damage:number):void{const p=this.state.players.find(p=>p.slot===slot);if(!p||p.state==='ko')return;p.health=Math.max(0,p.health-Math.max(0,damage));if(p.health>0){p.state='hurt';return}if(p.continues>0){p.continues--;p.health=p.maxHealth;p.state='idle';p.z=0;p.x=Math.max(this.state.cameraX+160,p.x-120)}else p.state='ko'}
+ advanceStage():void{if(this.state.stage===6){this.state.phase='victory';return}this.state.stage=(this.state.stage+1) as StageId;this.state.cameraX=0;for(const p of this.state.players){p.x=220+p.slot*90;p.y=560+p.slot*35;p.z=0;if(p.state!=='ko')p.state='idle'}this.resetStageRuntime()}
+ private resetStageRuntime():void{this.state.enemies=[];this.triggered.clear();this.enemyRuntime.clear();this.bossSpawned=false;this.stageClearTicks=0;for(const p of this.state.players)this.inputs.set(p.slot,{...EMPTY})}
+ snapshot(serverTime=Date.now()):WorldSnapshot{return{type:'snapshot',protocol:1,tick:this.state.tick,serverTime,room:this.room,stage:this.state.stage,phase:this.state.phase,cameraX:this.state.cameraX,players:this.state.players.map(p=>({...p})),enemies:this.state.enemies.map(e=>({...e}))}}
 }
