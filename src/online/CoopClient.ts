@@ -30,6 +30,7 @@ export class CoopClient extends EventTarget {
   private socket?: WebSocket;
   private socketGeneration = 0;
   private connecting?: Promise<void>;
+  private cancelConnecting?: (error: Error) => void;
   private inputSeq = 0;
   private reconnectTimer?: number;
   private reconnectAttempt = 0;
@@ -83,6 +84,7 @@ export class CoopClient extends EventTarget {
     }
 
     this.cancelReconnect();
+    this.cancelConnecting?.(new Error('Connessione sostituita'));
     this.intentionalClose = true;
     const old = this.socket;
     this.socket = undefined;
@@ -126,8 +128,10 @@ export class CoopClient extends EventTarget {
         settled = true;
         window.clearTimeout(timer);
         if (this.connecting === connection) this.connecting = undefined;
+        if (this.cancelConnecting === finish) this.cancelConnecting = undefined;
         error ? reject(error) : resolve();
       };
+      this.cancelConnecting = finish;
       const timer = window.setTimeout(() => {
         if (generation !== this.socketGeneration) return;
         try { ws.close(); } catch {}
@@ -193,9 +197,10 @@ export class CoopClient extends EventTarget {
 
       ws.addEventListener('close', () => {
         window.clearTimeout(timer);
-        if (generation !== this.socketGeneration) return;
+        if (generation !== this.socketGeneration) { finish(new Error('Connessione sostituita')); return; }
         if (this.socket === ws) this.socket = undefined;
         if (this.connecting === connection) this.connecting = undefined;
+        finish(new Error('Connessione chiusa prima del completamento handshake'));
         this.dispatchEvent(new Event('close'));
         if (this.intentionalClose || !this.room || !this.reconnectToken) return;
         if (!this.reconnectUntil) this.reconnectUntil = Date.now() + RECONNECT_WINDOW_MS;
@@ -226,6 +231,7 @@ export class CoopClient extends EventTarget {
     this.intentionalClose = true;
     this.cancelReconnect();
     this.socketGeneration++;
+    this.cancelConnecting?.(new Error('Connessione annullata'));
     try { this.socket?.close(); } catch {}
     this.socket = undefined;
     this.connecting = undefined;
