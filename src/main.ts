@@ -38,6 +38,7 @@ let localClient: LocalCampaignClient | null = null;
 let inputTarget: InputTarget = idleInput;
 let storySeenIntro = false;
 let storyQueue = Promise.resolve();
+let onlineStoryListener: ((event: Event) => void) | null = null;
 
 const splash = $<HTMLElement>('#splash');
 const menu = $<HTMLElement>('#menu');
@@ -61,6 +62,7 @@ const showPlaySurface = () => {
 const showMenu = async () => {
   coopGame?.stop();
   coopGame = null;
+  if (onlineStoryListener) { coopLobby?.getClient?.().removeEventListener('message', onlineStoryListener); onlineStoryListener = null; }
   localClient?.stop();
   localClient = null;
   inputTarget = idleInput;
@@ -79,9 +81,22 @@ const queueStory = (work: () => Promise<void>) => {
 };
 
 const presentStory = async (client: CampaignClient, sceneId: string, card: StoryScene) => {
-  try { client.sceneEnter(sceneId); } catch {}
+  if (client instanceof LocalCampaignClient) client.sceneEnter(sceneId);
   await story.show(card);
-  try { client.sceneReady(sceneId); } catch {}
+  client.sceneReady(sceneId);
+  if (client instanceof CoopClient) {
+    await new Promise<void>(resolve => {
+      if (client.activeScene !== sceneId) { resolve(); return; }
+      const done = (event: Event) => {
+        const message = (event as CustomEvent<import('./shared/protocol').ServerMessage>).detail;
+        if (message.type === 'scene' && message.sceneId === sceneId && !message.active) {
+          client.removeEventListener('message', done);
+          resolve();
+        }
+      };
+      client.addEventListener('message', done);
+    });
+  }
 };
 
 const showOpening = (client: CampaignClient) => queueStory(async () => {
@@ -97,26 +112,40 @@ const handleAudio = (event: CoopAudioEvent) => {
 };
 
 const startCampaignGame = async (client: CampaignClient, startLocal = false) => {
-  await showOpening(client);
+  if (client instanceof LocalCampaignClient) await showOpening(client);
   inputTarget.resetInput();
   coopGame?.stop();
   coopGame = new CoopGame(canvas, client);
 
-  coopGame.addEventListener('story', event => {
-    const detail = (event as CustomEvent<{ kind: string; stage: number; from?: number }>).detail;
-    void queueStory(async () => {
-      if (detail.kind === 'stage-intro') {
-        await presentStory(client, `stage-intro-${detail.stage}`, STAGE_INTROS[detail.stage]);
-      } else if (detail.kind === 'stage-transition') {
-        if (detail.from && STAGE_OUTROS[detail.from]) {
-          await presentStory(client, `stage-outro-${detail.from}`, STAGE_OUTROS[detail.from]);
-        }
-        await presentStory(client, `stage-intro-${detail.stage}`, STAGE_INTROS[detail.stage]);
-      } else if (detail.kind === 'finale') {
-        await presentStory(client, 'finale', FINALE);
-      }
+  const presentSceneId = (sceneId: string) => {
+    const match = sceneId.match(/^stage-(intro|outro)-(\d)$/);
+    const card = sceneId === 'opening' ? INTRO
+      : sceneId === 'finale' ? FINALE
+      : match?.[1] === 'intro' ? STAGE_INTROS[Number(match[2])]
+      : match?.[1] === 'outro' ? STAGE_OUTROS[Number(match[2])]
+      : undefined;
+    if (card) void queueStory(() => presentStory(client, sceneId, card));
+  };
+
+  if (client instanceof CoopClient) {
+    onlineStoryListener = event => {
+      const message = (event as CustomEvent<import('./shared/protocol').ServerMessage>).detail;
+      if (message.type === 'scene' && message.active) presentSceneId(message.sceneId);
+    };
+    client.addEventListener('message', onlineStoryListener);
+    if (client.activeScene) presentSceneId(client.activeScene);
+  } else {
+    coopGame.addEventListener('story', event => {
+      const detail = (event as CustomEvent<{ kind: string; stage: number; from?: number }>).detail;
+      void queueStory(async () => {
+        if (detail.kind === 'stage-intro') await presentStory(client, `stage-intro-${detail.stage}`, STAGE_INTROS[detail.stage]);
+        else if (detail.kind === 'stage-transition') {
+          if (detail.from && STAGE_OUTROS[detail.from]) await presentStory(client, `stage-outro-${detail.from}`, STAGE_OUTROS[detail.from]);
+          await presentStory(client, `stage-intro-${detail.stage}`, STAGE_INTROS[detail.stage]);
+        } else if (detail.kind === 'finale') await presentStory(client, 'finale', FINALE);
+      });
     });
-  });
+  }
 
   coopGame.addEventListener('audio', event => handleAudio((event as CustomEvent<CoopAudioEvent>).detail));
   inputTarget = coopGame;
