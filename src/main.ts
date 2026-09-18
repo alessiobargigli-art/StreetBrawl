@@ -39,6 +39,7 @@ let inputTarget: InputTarget = idleInput;
 let storySeenIntro = false;
 let storyQueue = Promise.resolve();
 let onlineStoryListener: ((event: Event) => void) | null = null;
+const onlineScenesQueued = new Set<string>();
 
 const splash = $<HTMLElement>('#splash');
 const menu = $<HTMLElement>('#menu');
@@ -118,6 +119,8 @@ const startCampaignGame = async (client: CampaignClient, startLocal = false) => 
   coopGame = new CoopGame(canvas, client);
 
   const presentSceneId = (sceneId: string) => {
+    if (onlineScenesQueued.has(sceneId)) return;
+    onlineScenesQueued.add(sceneId);
     const match = sceneId.match(/^stage-(intro|outro)-(\d)$/);
     const card = sceneId === 'opening' ? INTRO
       : sceneId === 'finale' ? FINALE
@@ -131,6 +134,7 @@ const startCampaignGame = async (client: CampaignClient, startLocal = false) => 
     onlineStoryListener = event => {
       const message = (event as CustomEvent<import('./shared/protocol').ServerMessage>).detail;
       if (message.type === 'scene' && message.active) presentSceneId(message.sceneId);
+      else if (message.type === 'scene' && !message.active) onlineScenesQueued.delete(message.sceneId);
     };
     client.addEventListener('message', onlineStoryListener);
     if (client.activeScene) presentSceneId(client.activeScene);
