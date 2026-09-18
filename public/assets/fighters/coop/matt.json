@@ -2,191 +2,124 @@
   "character": "matt",
   "image": "matt.png",
   "atlasSize": {
-    "w": 768,
-    "h": 114
+    "w": 717,
+    "h": 116
   },
   "frames": [
     {
       "index": 0,
       "rect": {
-        "x": 11,
-        "y": 2,
-        "w": 87,
-        "h": 109
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 11,
-        "y": 2
+        "x": 2,
+        "y": 3,
+        "w": 70,
+        "h": 111
       },
       "pivot": {
-        "x": 0.071,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 1,
       "rect": {
-        "x": 97,
+        "x": 76,
         "y": 2,
-        "w": 92,
-        "h": 110
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 97,
-        "y": 2
+        "w": 72,
+        "h": 112
       },
       "pivot": {
-        "x": 0.1865,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 2,
       "rect": {
-        "x": 180,
+        "x": 152,
         "y": 6,
-        "w": 107,
-        "h": 106
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 180,
-        "y": 6
+        "w": 93,
+        "h": 108
       },
       "pivot": {
-        "x": 0.304,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 3,
       "rect": {
-        "x": 268,
-        "y": 5,
-        "w": 109,
-        "h": 108
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 268,
-        "y": 5
+        "x": 249,
+        "y": 4,
+        "w": 103,
+        "h": 110
       },
       "pivot": {
-        "x": 0.4206,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 4,
       "rect": {
-        "x": 371,
-        "y": 5,
-        "w": 124,
-        "h": 108
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 371,
-        "y": 5
+        "x": 356,
+        "y": 4,
+        "w": 108,
+        "h": 110
       },
       "pivot": {
-        "x": 0.5635,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 5,
       "rect": {
-        "x": 476,
+        "x": 468,
         "y": 12,
-        "w": 117,
-        "h": 100
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 476,
-        "y": 12
+        "w": 61,
+        "h": 102
       },
       "pivot": {
-        "x": 0.696,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 6,
       "rect": {
-        "x": 576,
-        "y": 84,
-        "w": 108,
-        "h": 28
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 576,
-        "y": 84
+        "x": 533,
+        "y": 83,
+        "w": 111,
+        "h": 31
       },
       "pivot": {
-        "x": 0.821,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     },
     {
       "index": 7,
       "rect": {
-        "x": 668,
+        "x": 648,
         "y": 32,
-        "w": 91,
-        "h": 80
-      },
-      "sourceSize": {
-        "w": 768,
-        "h": 114
-      },
-      "trimOffset": {
-        "x": 668,
-        "y": 32
+        "w": 67,
+        "h": 82
       },
       "pivot": {
-        "x": 0.9297,
-        "y": 0.96
+        "x": 0.5,
+        "y": 1
       }
     }
   ],
   "animations": {
     "idle": {
       "frames": [
-        0,
         0
       ],
       "durationsMs": [
-        360,
-        360
+        600
       ],
-      "loop": true,
-      "status": "source-pose fallback"
+      "loop": true
     },
     "walk": {
       "frames": [
@@ -196,13 +129,13 @@
         1
       ],
       "durationsMs": [
-        130,
-        130,
-        130,
-        130
+        120,
+        120,
+        120,
+        120
       ],
       "loop": true,
-      "status": "source-pose fallback"
+      "status": "fallback-unused-by-movement-atlas"
     },
     "punch": {
       "frames": [
@@ -212,10 +145,10 @@
         0
       ],
       "durationsMs": [
-        90,
+        80,
         90,
         100,
-        130
+        120
       ],
       "loop": false
     },
@@ -226,9 +159,9 @@
         0
       ],
       "durationsMs": [
-        120,
+        100,
         150,
-        180
+        170
       ],
       "loop": false
     },
@@ -238,8 +171,8 @@
         0
       ],
       "durationsMs": [
-        150,
-        170
+        140,
+        160
       ],
       "loop": false
     },
@@ -261,15 +194,14 @@
         0
       ],
       "durationsMs": [
-        220,
-        220,
-        180
+        200,
+        210,
+        170
       ],
       "loop": false
     }
   },
   "notes": [
-    "Frames are manually bounded from source pose regions and may overlap where limbs cross theoretical cells.",
-    "Missing in-between frames use explicit source-pose fallbacks; they are not claimed as completed animation art."
+    "Frames rebuilt from isolated transparent poses with non-overlapping bounds and explicit gutters."
   ]
 }
