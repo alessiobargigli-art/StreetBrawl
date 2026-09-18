@@ -156,7 +156,6 @@ const startCampaignGame = async (client: CampaignClient, startLocal = false) => 
   showPlaySurface();
   coopGame.start();
   if (startLocal && client instanceof LocalCampaignClient) client.start();
-  await audio.playMusic('stage1');
 };
 
 const startLocalGame = async (character: CharacterId) => {
