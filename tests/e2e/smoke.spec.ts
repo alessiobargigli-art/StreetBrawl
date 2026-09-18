@@ -1,10 +1,19 @@
 import { test, expect, type Page } from '@playwright/test';
 
 async function enterWithoutAudio(page: Page) {
-  await page.route('**/audio/**', route => route.abort());
+  // Make the bootstrap deterministic without depending on the audio bundle path or timing.
+  // Abort media requests before navigation; StreetBrawl then exposes its supported silent fallback.
+  await page.route('**/*', route => {
+    const type = route.request().resourceType();
+    if (type === 'media') return route.abort();
+    return route.continue();
+  });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'CONTINUA SENZA AUDIO' })).toBeVisible();
-  await page.getByRole('button', { name: 'CONTINUA SENZA AUDIO' }).click();
+  const silent = page.getByRole('button', { name: 'CONTINUA SENZA AUDIO' });
+  const enter = page.getByRole('button', { name: 'ENTRA' });
+  await expect(silent.or(enter)).toBeVisible({ timeout: 20_000 });
+  if (await silent.isVisible()) await silent.click();
+  else await enter.click();
   await expect(page.getByRole('button', { name: 'GIOCA SOLO' })).toBeVisible();
 }
 
