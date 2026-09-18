@@ -134,7 +134,28 @@ const startCampaignGame = async (client: CampaignClient, startLocal = false) => 
   inputTarget.resetInput();
   coopGame?.stop();
   coopGame = new CoopGame(canvas, client);
-  await coopGame.preload();
+  coopScreen.hidden = false;
+  coopScreen.innerHTML = '<div class="panel"><h2>CARICAMENTO GRAFICA</h2><p id="art-status">Preparazione asset…</p><div class="progress"><i id="art-bar"></i></div><button id="art-retry" hidden>RIPROVA</button></div>';
+  for (;;) {
+    try {
+      await coopGame.preload((loaded, total) => {
+        const artStatus = coopScreen.querySelector<HTMLElement>('#art-status');
+        const artBar = coopScreen.querySelector<HTMLElement>('#art-bar');
+        if (artStatus) artStatus.textContent = `Asset ${loaded} / ${total}`;
+        if (artBar) artBar.style.width = `${Math.round(loaded / total * 100)}%`;
+      });
+      break;
+    } catch (assetError) {
+      const artStatus = coopScreen.querySelector<HTMLElement>('#art-status');
+      const artRetry = coopScreen.querySelector<HTMLButtonElement>('#art-retry');
+      if (artStatus) artStatus.textContent = assetError instanceof Error ? assetError.message : 'Caricamento grafica fallito';
+      if (!artRetry) throw assetError;
+      artRetry.hidden = false;
+      await new Promise<void>(resolve => artRetry.addEventListener('click', () => resolve(), { once: true }));
+      artRetry.hidden = true;
+      coopGame.resetPreload();
+    }
+  }
 
   const presentSceneId = (sceneId: string) => {
     if (onlineScenesQueued.has(sceneId)) return;
