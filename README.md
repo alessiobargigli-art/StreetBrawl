@@ -8,7 +8,14 @@ Browser beat 'em up inspired by classic 2.5D arcade brawlers, built as an origin
 - Two scrolling stages, encounter waves and two bosses
 - Keyboard and floating mobile joystick controls
 - PWA install/fullscreen support
-- Version visible in game: `1.2.2-reconnect-preload`
+- Version visible in game: `1.2.3-animation-gamefeel`
+
+## Animation / game feel
+
+- Alex, Matt, Elisa and Gaga now use four-frame walk cycles plus a dedicated jump pose from precisely cropped transparent sprite regions.
+- Thug, Ripper and Heavy use matching movement art; Heavy no longer borrows the Thug walk silhouette.
+- Movement art is loaded as a required versioned atlas before gameplay starts and is validated in CI against the PNG bounds.
+- Snapshot interpolation follows the observed authoritative cadence to reduce the visible accelerate/pause sensation under small timing jitter without adding client-side prediction.
 
 ## Controls
 
