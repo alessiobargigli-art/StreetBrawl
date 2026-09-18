@@ -69,6 +69,18 @@ Existing files are preserved:
 
 Missing stage/boss themes intentionally use temporary mappings until original tracks are supplied.
 
+## Second-review regression remediation
+
+- Lobby snapshots no longer start gameplay; only non-lobby authoritative phases can cross the lobby/game boundary.
+- Connection attempts now settle on pre-welcome close, timeout, cancellation and socket replacement.
+- Hurt/down/get-up/KO transitions invalidate active and queued attacks.
+- Online story order is room-authoritative: opening starts server-side with gameplay paused, consecutive scenes are queued by the room, reconnect receives the active scene, and scene completion waits for reconnect-grace participants until they return or expire.
+- Manual pause and narrative pause are derived from active causes in both online and local campaign paths.
+- Initial renderer/audio state is derived from the received snapshot instead of forcing Stage 1 music.
+- CI now executes deterministic shared-simulation regression tests in addition to browser build and Worker/shared typecheck.
+
+Automated coverage is still incomplete for the requested full browser/room matrix. In particular, two-browser lobby→READY→START→scene→reconnect→finale remains **NON VERIFICATO END-TO-END** and must not be represented as release acceptance.
+
 ## Consolidation backlog — next pass
 
 These are deliberately separated from feature implementation and must be reviewed before the PR is considered release-ready:
@@ -78,7 +90,7 @@ These are deliberately separated from feature implementation and must be reviewe
 - Finish local movement prediction/reconciliation and make authoritative `facing` / `actionStartedTick` mandatory after both client and Worker are migrated together.
 - Verify late join only at a safe encounter boundary and improve visible reconnect/grace UX.
 - Consolidate procedural combat SFX and soundtrack controls behind one mute/volume policy; deduplicate predicted/confirmed effects.
-- Add committed lockfiles, switch CI to `npm ci`, deterministic simulation tests and browser smoke coverage.
+- Add committed lockfiles, switch CI to `npm ci`, and complete room/browser smoke coverage (simulation regression tests are now present).
 - Verify continue/get-up/invulnerability, stage healing, boss balance and six-stage end-to-end progression.
 - Verify atlas pivots/cropping/facing and replace temporary legacy fallbacks where necessary.
 - Run real Android/iPad landscape/fullscreen/safe-area/PWA tests.
