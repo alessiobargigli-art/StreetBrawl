@@ -18,6 +18,12 @@ jobs:
         run: npm install
       - name: Build browser client
         run: npm run build
+      - name: Run shared simulation regression tests
+        run: |
+          rm -rf .test-dist
+          npx tsc src/shared/campaign.ts src/shared/protocol.ts src/shared/simulation.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-dist --esModuleInterop --skipLibCheck
+          printf '{"type":"commonjs"}' > .test-dist/package.json
+          node --test tests/simulation.test.cjs
       - name: Install worker dependencies
         working-directory: worker
         run: npm install
