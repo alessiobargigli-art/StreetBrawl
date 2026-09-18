@@ -8,7 +8,7 @@ Browser beat 'em up inspired by classic 2.5D arcade brawlers, built as an origin
 - Two scrolling stages, encounter waves and two bosses
 - Keyboard and floating mobile joystick controls
 - PWA install/fullscreen support
-- Version visible in game: `1.0.0-audio`
+- Version visible in game: `1.2.2-reconnect-preload`
 
 ## Controls
 
@@ -35,7 +35,7 @@ Arcade feedback uses reusable WebAudio synthesis for UI/progression events. The 
 ## Run locally
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -49,3 +49,8 @@ npm run preview
 ## Audio QA
 
 Automated CI verifies the TypeScript/Vite production build. Real-device checks remain separate: first load under throttling, offline reopen after a complete preload, iOS/Android audio unlock, three consecutive musical loops per track, background/resume, portrait/landscape rotation and perceived mix levels.
+
+
+## Campaign asset loading
+
+Campaign graphics are release-versioned and decoded before gameplay starts. A failed required atlas/image keeps gameplay stopped and exposes retry or exit instead of silently falling back to a partially mixed cache. The co-op Worker endpoint in source is configuration only; public multiplayer is not considered verified without an explicit two-client deployment test.

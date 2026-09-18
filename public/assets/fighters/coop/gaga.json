@@ -1,0 +1,275 @@
+{
+  "character": "gaga",
+  "image": "gaga.png",
+  "atlasSize": {
+    "w": 768,
+    "h": 116
+  },
+  "frames": [
+    {
+      "index": 0,
+      "rect": {
+        "x": 10,
+        "y": 0,
+        "w": 88,
+        "h": 112
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 10,
+        "y": 0
+      },
+      "pivot": {
+        "x": 0.0703,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 1,
+      "rect": {
+        "x": 80,
+        "y": 0,
+        "w": 110,
+        "h": 112
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 80,
+        "y": 0
+      },
+      "pivot": {
+        "x": 0.1751,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 2,
+      "rect": {
+        "x": 179,
+        "y": 4,
+        "w": 108,
+        "h": 108
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 179,
+        "y": 4
+      },
+      "pivot": {
+        "x": 0.3034,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 3,
+      "rect": {
+        "x": 268,
+        "y": 4,
+        "w": 121,
+        "h": 108
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 268,
+        "y": 4
+      },
+      "pivot": {
+        "x": 0.4284,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 4,
+      "rect": {
+        "x": 371,
+        "y": 0,
+        "w": 124,
+        "h": 114
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 371,
+        "y": 0
+      },
+      "pivot": {
+        "x": 0.5635,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 5,
+      "rect": {
+        "x": 476,
+        "y": 10,
+        "w": 117,
+        "h": 104
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 476,
+        "y": 10
+      },
+      "pivot": {
+        "x": 0.696,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 6,
+      "rect": {
+        "x": 574,
+        "y": 84,
+        "w": 110,
+        "h": 28
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 574,
+        "y": 84
+      },
+      "pivot": {
+        "x": 0.8193,
+        "y": 0.96
+      }
+    },
+    {
+      "index": 7,
+      "rect": {
+        "x": 668,
+        "y": 36,
+        "w": 90,
+        "h": 78
+      },
+      "sourceSize": {
+        "w": 768,
+        "h": 116
+      },
+      "trimOffset": {
+        "x": 668,
+        "y": 36
+      },
+      "pivot": {
+        "x": 0.9294,
+        "y": 0.96
+      }
+    }
+  ],
+  "animations": {
+    "idle": {
+      "frames": [
+        0,
+        0
+      ],
+      "durationsMs": [
+        360,
+        360
+      ],
+      "loop": true,
+      "status": "source-pose fallback"
+    },
+    "walk": {
+      "frames": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "durationsMs": [
+        130,
+        130,
+        130,
+        130
+      ],
+      "loop": true,
+      "status": "source-pose fallback"
+    },
+    "punch": {
+      "frames": [
+        0,
+        2,
+        3,
+        0
+      ],
+      "durationsMs": [
+        90,
+        90,
+        100,
+        130
+      ],
+      "loop": false
+    },
+    "kick": {
+      "frames": [
+        0,
+        4,
+        0
+      ],
+      "durationsMs": [
+        120,
+        150,
+        180
+      ],
+      "loop": false
+    },
+    "hurt": {
+      "frames": [
+        5,
+        0
+      ],
+      "durationsMs": [
+        150,
+        170
+      ],
+      "loop": false
+    },
+    "ko": {
+      "frames": [
+        5,
+        6
+      ],
+      "durationsMs": [
+        120,
+        500
+      ],
+      "loop": false
+    },
+    "getup": {
+      "frames": [
+        6,
+        7,
+        0
+      ],
+      "durationsMs": [
+        220,
+        220,
+        180
+      ],
+      "loop": false
+    }
+  },
+  "notes": [
+    "Frames are manually bounded from source pose regions and may overlap where limbs cross theoretical cells.",
+    "Missing in-between frames use explicit source-pose fallbacks; they are not claimed as completed animation art."
+  ]
+}
