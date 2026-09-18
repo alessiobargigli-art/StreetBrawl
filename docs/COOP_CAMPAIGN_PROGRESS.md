@@ -81,6 +81,18 @@ Missing stage/boss themes intentionally use temporary mappings until original tr
 
 Automated coverage is still incomplete for the requested full browser/room matrix. In particular, two-browser lobby→READY→START→scene→reconnect→finale remains **NON VERIFICATO END-TO-END** and must not be represented as release acceptance.
 
+## Third-review remediation
+
+- Narrative reconnect now receives an explicit, revisioned authoritative scene state even when no scene is active; stale scene messages are ignored and the client tracks whether its slot already confirmed the active scene.
+- Replaced WebSocket sessions stop automatic reconnect without deleting the shared persisted token used by the newer tab/device.
+- Story overlays and narrative waits are cancellable on menu exit, replacement and reconnect expiry.
+- Campaign art preload is awaited before renderer start, validates atlas JSON and image decoding, reports progress, supports retry/exit, and uses release-versioned asset URLs.
+- Service Worker cache generation rotated for the 1.2.2 art bundle; non-navigation assets still have no HTML-shell fallback.
+- Explicit MENU and NUOVA PARTITA controls clean up the active renderer/session and route back through the appropriate solo/co-op selection.
+- Added deterministic client reconnect and room narrative/grace regression tests in CI.
+
+Two independent real browsers and the public Worker endpoint remain outside automated acceptance: **NON VERIFICATO END-TO-END**.
+
 ## Consolidation backlog — next pass
 
 These are deliberately separated from feature implementation and must be reviewed before the PR is considered release-ready:
