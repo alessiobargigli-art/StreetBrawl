@@ -21,7 +21,7 @@ global.window=global;
 global.localStorage=new Storage();
 global.CustomEvent=CE;
 global.WebSocket=MockWebSocket;
-const { CoopClient } = require('../.test-client/CoopClient.js');
+const { CoopClient } = require('../.test-client/online/CoopClient.js');
 
 function welcome(ws, token='tok'){ ws.message({type:'welcome',protocol:2,room:'ABC234',slot:0,reconnectToken:token}); }
 
