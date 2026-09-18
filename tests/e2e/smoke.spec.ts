@@ -29,6 +29,12 @@ test('solo: menu -> character -> opening -> gameplay -> menu -> new game', async
   await expect(page.locator('.story-overlay')).toBeVisible();
   await page.locator('.story-overlay button').click();
   await expect(page.locator('#game')).toBeVisible({ timeout: 20_000 });
+  // Starting the local simulation immediately emits the authoritative Stage 1 intro.
+  // Finish it too before asserting that gameplay controls are interactable.
+  await expect(page.locator('.story-overlay')).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('.story-overlay h2')).toHaveText('IL QUARTIERE');
+  await page.locator('.story-overlay button').click();
+  await expect(page.locator('.story-overlay')).toBeHidden();
   await page.getByRole('button', { name: 'MENU', exact: true }).click();
   await expect(page.getByRole('button', { name: 'GIOCA SOLO' })).toBeVisible();
   await page.getByRole('button', { name: 'GIOCA SOLO' }).click();
