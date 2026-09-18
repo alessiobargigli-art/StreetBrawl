@@ -10,6 +10,7 @@ export class LocalCampaignClient extends EventTarget {
   private snapshotCounter = 0;
   private inputSeq = 0;
   private sceneId?: string;
+  private manualPaused = false;
   snapshot?: WorldSnapshot;
 
   constructor(character: CharacterId) {
@@ -38,21 +39,24 @@ export class LocalCampaignClient extends EventTarget {
   }
 
   setPaused(paused: boolean) {
-    if (paused && this.simulation.state.phase === 'playing') this.simulation.state.phase = 'paused';
-    else if (!paused && this.simulation.state.phase === 'paused' && !this.sceneId) this.simulation.state.phase = 'playing';
-    this.publishSnapshot();
+    this.manualPaused = paused;
+    this.applyPause();
   }
 
   sceneEnter(sceneId: string) {
     this.sceneId = sceneId;
-    if (this.simulation.state.phase === 'playing') this.simulation.state.phase = 'paused';
-    this.publishSnapshot();
+    this.applyPause();
   }
 
   sceneReady(sceneId: string) {
     if (this.sceneId !== sceneId) return;
     this.sceneId = undefined;
-    if (this.simulation.state.phase === 'paused') this.simulation.state.phase = 'playing';
+    this.applyPause();
+  }
+
+  private applyPause() {
+    if (this.simulation.state.phase !== 'playing' && this.simulation.state.phase !== 'paused') return;
+    this.simulation.state.phase = this.manualPaused || !!this.sceneId ? 'paused' : 'playing';
     this.publishSnapshot();
   }
 
