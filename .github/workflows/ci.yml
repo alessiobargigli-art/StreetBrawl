@@ -35,7 +35,7 @@ jobs:
           rm -rf .test-game
           npx tsc src/online/CoopGame.ts src/online/CoopClient.ts src/shared/protocol.ts src/shared/campaign.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-game --esModuleInterop --skipLibCheck
           printf '{"type":"commonjs"}' > .test-game/package.json
-          node --test tests/assets.test.cjs
+          node --test tests/assets.test.cjs tests/movement-assets.test.cjs
       - name: Install worker dependencies
         working-directory: worker
         run: npm ci
