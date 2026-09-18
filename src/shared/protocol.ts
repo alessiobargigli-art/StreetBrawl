@@ -92,7 +92,7 @@ export type ClientMessage =
 export type ServerMessage =
   | { type: 'welcome'; protocol: typeof PROTOCOL_VERSION; room: RoomCode; slot: PlayerSlot; reconnectToken: string }
   | { type: 'lobby'; room: RoomCode; hostSlot: PlayerSlot; continuesPerPlayer: number; players: Array<Pick<PlayerSnapshot, 'slot' | 'nickname' | 'character' | 'ready' | 'connected'>> }
-  | { type: 'scene'; sceneId: string; active: boolean; readySlots: PlayerSlot[] }
+  | { type: 'scene'; sceneId: string; active: boolean; readySlots: PlayerSlot[]; revision: number }
   | WorldSnapshot
   | GameEvent
   | { type: 'error'; code: 'ROOM_FULL' | 'ROOM_NOT_FOUND' | 'ROOM_EXPIRED' | 'GAME_FINISHED' | 'CHARACTER_TAKEN' | 'BAD_MESSAGE' | 'NOT_HOST'; message: string };
