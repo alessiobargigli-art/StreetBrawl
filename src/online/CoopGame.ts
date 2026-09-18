@@ -14,7 +14,8 @@ type Frame = {
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
 type Atlas = { character: string; atlasSize?: { w: number; h: number }; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
-type MovementKey = CharacterId | 'thug' | 'ripper' | 'heavy';
+type EnemyAtlasKey = 'thug' | 'ripper' | 'heavy';
+type MovementKey = CharacterId | EnemyAtlasKey;
 type MovementManifest = { image: string; atlases: Record<MovementKey, Atlas> };
 type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot; activeScene?: string };
 
@@ -40,6 +41,7 @@ export class CoopGame extends EventTarget {
   private images = new Map<string, HTMLImageElement>();
   private atlases = new Map<string, Atlas>();
   private movementAtlases = new Map<MovementKey, Atlas>();
+  private enemyAtlases = new Map<EnemyAtlasKey, Atlas>();
   private animationClocks = new Map<string, { state: string; elapsed: number; lastAt: number }>();
   private lastStage = 0;
   private lastPhase = '';
@@ -184,7 +186,8 @@ export class CoopGame extends EventTarget {
       stage5: '/assets/stages/coop-stage5-harbor.svg', stage6: '/assets/stages/coop-stage6-cargo.svg',
     };
     const keys: AtlasKey[] = ['alex', 'matt', 'elisa', 'gaga', 'roxy', 'switch', 'rivet', 'crane'];
-    const total = Object.keys(legacy).length + keys.length * 2 + 2;
+    const enemyKeys: EnemyAtlasKey[] = ['thug', 'ripper', 'heavy'];
+    const total = Object.keys(legacy).length + keys.length * 2 + enemyKeys.length * 2 + 2;
     let loaded = 0;
     const done = () => onProgress?.(++loaded, total);
     const versioned = (url: string) => `${url}?v=${CoopGame.ASSET_VERSION}`;
@@ -201,6 +204,19 @@ export class CoopGame extends EventTarget {
       this.atlases.set(key, atlas); done();
       await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`));
       if (dir === 'coop') this.validateAtlasImage(key, atlas);
+      done();
+    }));
+
+    await Promise.all(enemyKeys.map(async key => {
+      const response = await fetch(versioned(`/assets/fighters/enemies/${key}.json`), { cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Asset nemico ${key}.json non disponibile (HTTP ${response.status})`);
+      const atlas = await response.json() as Atlas;
+      if (!atlas.frames?.length || !atlas.animations?.idle || !atlas.animations?.walk || !atlas.animations?.punch || !atlas.animations?.hurt) {
+        throw new Error(`Atlas nemico ${key} non valido`);
+      }
+      this.enemyAtlases.set(key, atlas); done();
+      await this.loadImage(`enemy:${key}`, versioned(`/assets/fighters/enemies/${key}.png`));
+      this.validateAtlasImage(`enemy:${key}`, atlas);
       done();
     }));
 
@@ -468,14 +484,8 @@ export class CoopGame extends EventTarget {
     let imported = (['roxy', 'switch', 'rivet', 'crane'] as string[]).includes(bossName) &&
       this.drawAtlas(bossName, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
     if (!enemy.kind.startsWith('boss:')) {
-      const movementKey: MovementKey = enemy.kind === 'ripper' ? 'ripper' : enemy.kind === 'heavy' ? 'heavy' : 'thug';
-      const movementAnimation = enemy.state === 'jump'
-        ? 'jump'
-        : (enemy.state === 'walk' || enemy.state.startsWith('entering')) ? 'walk' : null;
-      if (movementAnimation) imported = this.drawMovementAtlas(movementKey, movementAnimation, `enemy:${enemy.id}`, now, 1.4, snapshot);
-      // Heavy has no legacy combat atlas yet. Never fall back to the Thug artwork:
-      // retain Heavy's own silhouette until dedicated attack/hurt/down frames are installed.
-      if (!imported && enemy.kind === 'heavy') imported = this.drawMovementFrame('heavy', 0, 1.4);
+      const enemyKey: EnemyAtlasKey = enemy.kind === 'ripper' ? 'ripper' : enemy.kind === 'heavy' ? 'heavy' : 'thug';
+      imported = this.drawEnemyAtlas(enemyKey, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
     }
     if (!imported) {
       const key = enemy.kind.startsWith('boss:') ? (bossName === 'dock-master' ? 'dock-master' : 'bruno') : enemy.kind === 'ripper' ? 'ripper' : 'thug';
@@ -569,6 +579,37 @@ export class CoopGame extends EventTarget {
       }
     }
     return this.drawMovementFrame(key, frameIndex, scale);
+  }
+
+  private drawEnemyAtlas(key: EnemyAtlasKey, state: string, action: string, actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
+    const atlas = this.enemyAtlases.get(key);
+    const image = this.images.get(`enemy:${key}`);
+    if (!atlas || !image?.complete || !image.naturalWidth) return false;
+    const animationName = this.animFor(state, action, atlas);
+    const animation = atlas.animations[animationName] ?? atlas.animations.idle;
+    const tickElapsed = Math.max(0, snapshot.tick - actionStartedTick) * (1000 / SIMULATION_HZ);
+    const interpolationElapsed = snapshot.phase === 'paused' ? 0 : Math.max(0, now - this.latestAt);
+    const rawElapsed = tickElapsed + interpolationElapsed;
+    const total = animation.durationsMs.reduce((sum, value) => sum + value, 0) || 1;
+    const elapsed = animation.loop ? rawElapsed % total : Math.min(rawElapsed, total - 1);
+    let accumulator = 0;
+    let frameIndex = animation.frames[animation.frames.length - 1] ?? 0;
+    for (let index = 0; index < animation.frames.length; index++) {
+      accumulator += animation.durationsMs[index] ?? 100;
+      if (elapsed < accumulator) {
+        frameIndex = animation.frames[index];
+        break;
+      }
+    }
+    const frame = atlas.frames[frameIndex] ?? atlas.frames[0];
+    const width = frame.rect.w * scale;
+    const height = frame.rect.h * scale;
+    this.ctx.drawImage(
+      image,
+      frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
+      -width * this.clamp01(frame.pivot.x), -height * this.clamp01(frame.pivot.y), width, height,
+    );
+    return true;
   }
 
   private drawAtlas(key: string, state: string, action: string, actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
