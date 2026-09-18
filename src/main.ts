@@ -13,7 +13,7 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 type InputTarget = { setVirtualKey: (code: string, down: boolean) => void; resetInput: () => void };
 type CampaignClient = CoopClient | LocalCampaignClient;
 
-const VERSION = '1.2.0-campaign';
+const VERSION = '1.2.1-review-fixes';
 let installPrompt: InstallPromptEvent | null = null;
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('Missing #app root');
