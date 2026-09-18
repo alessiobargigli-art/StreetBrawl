@@ -30,6 +30,12 @@ jobs:
           npx tsc src/online/CoopClient.ts src/shared/protocol.ts src/shared/campaign.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-client --esModuleInterop --skipLibCheck
           printf '{"type":"commonjs"}' > .test-client/package.json
           node --test tests/client-reconnect.test.cjs
+      - name: Run required-art preload regression test
+        run: |
+          rm -rf .test-game
+          npx tsc src/online/CoopGame.ts src/online/CoopClient.ts src/shared/protocol.ts src/shared/campaign.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-game --esModuleInterop --skipLibCheck
+          printf '{"type":"commonjs"}' > .test-game/package.json
+          node --test tests/assets.test.cjs
       - name: Install worker dependencies
         working-directory: worker
         run: npm install
