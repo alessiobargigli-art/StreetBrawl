@@ -33,9 +33,9 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [ ] Verificare la resa SOLO e CO-OP con camera in movimento.
 
 ### Fase B — audit e ricostruzione atlas combat
-- [ ] Ricostruire Alex/Matt/Elisa/Gaga dagli originali con frame separati e gutter trasparente.
-- [ ] Validare idle, punch 1/2, kick, hurt, down/KO, getup.
-- [ ] Test automatico: nessun rect può sovrapporsi a un altro rect.
+- [x] Ricostruire Alex/Matt/Elisa/Gaga dagli originali con frame separati e gutter trasparente.
+- [x] Validare idle, punch 1/2, kick, hurt, down/KO, getup.
+- [x] Test automatico: nessun rect può sovrapporsi a un altro rect.
 - [ ] Test alpha-edge: ogni rect deve avere bordo trasparente minimo dove possibile.
 
 ### Fase C — nuove walk cycle
@@ -45,9 +45,9 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [ ] Durata frame costante e parametrica.
 
 ### Fase D — enemy combat art
-- [ ] Integrare attack/hurt/down dedicati per Thug/Ripper/Heavy.
-- [ ] Nessun fallback cross-character.
-- [ ] Boss invariati salvo regressioni.
+- [x] Preparati atlas identity-specific con attack/hurt/down dedicati per Thug/Ripper/Heavy; upload PNG binari ancora richiesto.
+- [x] Nessun fallback cross-character nel renderer.
+- [x] Boss invariati salvo regressioni.
 
 ### Fase E — verifica
 - [ ] Build + simulation/reconnect/room tests.
@@ -55,3 +55,7 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [ ] Playwright SOLO + CO-OP.
 - [ ] Check visuale manuale: walk lunga, cambio direzione, salto, hit, KO/getup, 3 archetipi nemici.
 - [ ] Merge solo con CI verde e check visuale.
+
+## Stato asset binari
+
+I metadata e il renderer sono già sul branch. I PNG puliti sono pronti ma devono essere caricati sul branch nelle path attese prima che la validazione runtime possa diventare verde. La CI deve restare bloccante in caso di dimensioni PNG/metadata non corrispondenti.
