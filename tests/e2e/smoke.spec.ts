@@ -21,6 +21,19 @@ async function useLocalWorker(page: Page) {
   await page.addInitScript(() => localStorage.setItem('streetbrawl-coop-endpoint', 'http://127.0.0.1:8787'));
 }
 
+test('audio settings: mute persists across reload', async ({ page }) => {
+  await enterWithoutAudio(page);
+  const mute = page.locator('#mute');
+  await mute.check();
+  await expect(mute).toBeChecked();
+  await page.reload();
+  const silent = page.getByRole('button', { name: 'CONTINUA SENZA AUDIO' });
+  const enter = page.getByRole('button', { name: 'ENTRA' });
+  await expect(silent.or(enter)).toBeVisible({ timeout: 20_000 });
+  if (await silent.isVisible()) await silent.click(); else await enter.click();
+  await expect(page.locator('#mute')).toBeChecked();
+});
+
 test('solo: menu -> character -> opening -> gameplay -> menu -> new game', async ({ page }) => {
   await enterWithoutAudio(page);
   await page.getByRole('button', { name: 'GIOCA SOLO' }).click();
