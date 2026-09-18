@@ -38,6 +38,8 @@ export class CoopGame extends EventTarget {
   private atlases = new Map<string, Atlas>();
   private lastStage = 0;
   private lastPhase = '';
+  private preloadPromise?: Promise<void>;
+  private static readonly ASSET_VERSION = '1.2.2';
 
   private readonly onClientMessage = (event: Event) => {
     const message = (event as CustomEvent).detail;
@@ -56,10 +58,14 @@ export class CoopGame extends EventTarget {
     ctx.imageSmoothingEnabled = false;
     this.latest = client.snapshot;
     this.latestAt = performance.now();
-    void this.loadArt();
     client.addEventListener('message', this.onClientMessage);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
+  }
+
+  preload(onProgress?: (loaded: number, total: number) => void) {
+    if (!this.preloadPromise) this.preloadPromise = this.loadArt(onProgress);
+    return this.preloadPromise;
   }
 
   start() {
@@ -155,44 +161,45 @@ export class CoopGame extends EventTarget {
     this.dispatchEvent(new CustomEvent<CoopAudioEvent>('audio', { detail }));
   }
 
-  private async loadArt() {
-    const legacy = {
-      alex: '/assets/fighters/alex.svg',
-      thug: '/assets/fighters/thug.svg',
-      ripper: '/assets/fighters/ripper.svg',
-      bruno: '/assets/fighters/bruno.svg',
-      'dock-master': '/assets/fighters/dock-master.svg',
-      stage1: '/assets/stages/stage1-street.svg',
-      stage2: '/assets/stages/coop-stage2-market.svg',
-      stage3: '/assets/stages/coop-stage3-train.svg',
-      stage4: '/assets/stages/coop-stage4-depot.svg',
-      stage5: '/assets/stages/coop-stage5-harbor.svg',
-      stage6: '/assets/stages/coop-stage6-cargo.svg',
+  private async loadArt(onProgress?: (loaded: number, total: number) => void) {
+    const legacy: Record<string, string> = {
+      alex: '/assets/fighters/alex.svg', thug: '/assets/fighters/thug.svg', ripper: '/assets/fighters/ripper.svg',
+      bruno: '/assets/fighters/bruno.svg', 'dock-master': '/assets/fighters/dock-master.svg',
+      stage1: '/assets/stages/stage1-street.svg', stage2: '/assets/stages/coop-stage2-market.svg',
+      stage3: '/assets/stages/coop-stage3-train.svg', stage4: '/assets/stages/coop-stage4-depot.svg',
+      stage5: '/assets/stages/coop-stage5-harbor.svg', stage6: '/assets/stages/coop-stage6-cargo.svg',
     };
-    for (const [key, url] of Object.entries(legacy)) this.loadImage(key, url);
-
     const keys: AtlasKey[] = ['alex', 'matt', 'elisa', 'gaga', 'roxy', 'switch', 'rivet', 'crane'];
+    const total = Object.keys(legacy).length + keys.length * 2;
+    let loaded = 0;
+    const done = () => onProgress?.(++loaded, total);
+    const versioned = (url: string) => `${url}?v=${CoopGame.ASSET_VERSION}`;
+    await Promise.all(Object.entries(legacy).map(async ([key, url]) => {
+      await this.loadImage(key, versioned(url)); done();
+    }));
     await Promise.all(keys.map(async key => {
       const dir = ['roxy', 'switch', 'rivet', 'crane'].includes(key) ? 'bosses' : 'coop';
-      try {
-        const atlas = await fetch(`/assets/fighters/${dir}/${key}.json`).then(response => {
-          if (!response.ok) throw new Error(String(response.status));
-          return response.json() as Promise<Atlas>;
-        });
-        this.atlases.set(key, atlas);
-        this.loadImage(key, `/assets/fighters/${dir}/${key}.png`);
-      } catch (error) {
-        console.warn(`Atlas ${key} non disponibile`, error);
-      }
+      const jsonUrl = versioned(`/assets/fighters/${dir}/${key}.json`);
+      const response = await fetch(jsonUrl, { cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Asset ${key}.json non disponibile (HTTP ${response.status})`);
+      const atlas = await response.json() as Atlas;
+      if (!atlas.frames?.length || !atlas.animations?.idle) throw new Error(`Atlas ${key} non valido`);
+      this.atlases.set(key, atlas); done();
+      await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`)); done();
     }));
   }
 
-  private loadImage(key: string, url: string) {
+  private async loadImage(key: string, url: string) {
     const image = new Image();
     image.decoding = 'async';
     image.src = url;
-    this.images.set(key, image);
-    void image.decode().catch(() => {});
+    try {
+      await image.decode();
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error('dimensioni immagine non valide');
+      this.images.set(key, image);
+    } catch (error) {
+      throw new Error(`Immagine ${url} non caricabile: ${error instanceof Error ? error.message : 'decode fallito'}`);
+    }
   }
 
   private onKeyDown = (event: KeyboardEvent) => {
