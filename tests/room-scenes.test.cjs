@@ -8,12 +8,12 @@ test('A ready, disconnect, B ready advances and reconnect sees next authoritativ
  r.activateScene('opening',true);r.pendingScenes.push('stage-intro-1');r.markSceneReady(0,'opening');r.onClose(a);r.markSceneReady(1,'opening');
  assert.equal(r.activeScene,'stage-intro-1');assert.equal(r.sceneReady.size,0);
  const a2=new Socket();r.handleHello(a2,{type:'hello',protocol:2,nickname:'A',reconnectToken:'ta'});
- const scene=a2.messages.filter(x=>x.type==='scene').at(-1);assert.equal(scene.sceneId,'stage-intro-1');assert.equal(scene.active,true);assert.deepEqual(scene.readySlots,[]);
+ const scene=a2.messages.filter(x=>x.type==='scene').at(-1);assert.equal(scene.sceneId,'stage-intro-1');assert.equal(scene.active,true);assert.deepEqual(scene.readySlots,[]);if(r.tickTimer)clearInterval(r.tickTimer);
 });
 test('reconnect with no active scene receives explicit inactive narrative state',()=>{
  const r=room(),a=new Socket();r.reconnects.set('ta',{slot:0,token:'ta',nickname:'A',expiresAt:Date.now()+30000});
  const a2=new Socket();r.handleHello(a2,{type:'hello',protocol:2,nickname:'A',reconnectToken:'ta'});
- const scene=a2.messages.filter(x=>x.type==='scene').at(-1);assert.equal(scene.active,false);assert.equal(scene.sceneId,'');
+ const scene=a2.messages.filter(x=>x.type==='scene').at(-1);assert.equal(scene.active,false);assert.equal(scene.sceneId,'');if(r.tickTimer)clearInterval(r.tickTimer);
 });
 test('duplicate scene confirmations are idempotent and manual pause survives finale scene',()=>{
  const r=room(),a=new Socket(),b=new Socket();r.sessions.set(a,{socket:a,slot:0,token:'ta',nickname:'A'});r.sessions.set(b,{socket:b,slot:1,token:'tb',nickname:'B'});
