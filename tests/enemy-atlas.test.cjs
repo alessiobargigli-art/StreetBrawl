@@ -41,6 +41,8 @@ test('enemy atlases are identity-specific and contain all gameplay states', () =
 test('renderer does not map Heavy combat to Thug artwork', () => {
   const source = fs.readFileSync(path.join(root, 'src/online/CoopGame.ts'), 'utf8');
   assert.match(source, /enemy\.kind === 'heavy' \? 'heavy'/);
-  assert.doesNotMatch(source, /enemy\.kind === 'heavy'[^\n]*'thug'/);
+  assert.match(source, /const enemyKey: EnemyAtlasKey = enemy\.kind === 'ripper' \? 'ripper' : enemy\.kind === 'heavy' \? 'heavy' : 'thug';/);
+  assert.doesNotMatch(source, /enemy\.kind === 'heavy'\s*\?\s*'thug'/);
+  assert.doesNotMatch(source, /enemy\.kind === 'heavy'[^;\n]*drawLegacy\('thug'/);
   assert.match(source, /drawEnemyAtlas\(enemyKey/);
 });
