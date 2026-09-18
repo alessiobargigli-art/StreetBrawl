@@ -14,6 +14,8 @@ type Frame = {
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
 type Atlas = { character: string; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
+type MovementKey = CharacterId | 'thug' | 'ripper' | 'heavy';
+type MovementManifest = { image: string; atlases: Record<MovementKey, Atlas> };
 type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot; activeScene?: string };
 
 export type CoopAudioEvent = {
@@ -30,23 +32,27 @@ export class CoopGame extends EventTarget {
   private latest?: WorldSnapshot;
   private previous?: WorldSnapshot;
   private latestAt = 0;
+  private previousAt = 0;
   private keys = new Set<string>();
   private virtual = new Set<string>();
   private lastSent = '';
   private lastInputAt = 0;
   private images = new Map<string, HTMLImageElement>();
   private atlases = new Map<string, Atlas>();
+  private movementAtlases = new Map<MovementKey, Atlas>();
   private lastStage = 0;
   private lastPhase = '';
   private preloadPromise?: Promise<void>;
-  private static readonly ASSET_VERSION = '1.2.2';
+  private static readonly ASSET_VERSION = '1.2.3';
 
   private readonly onClientMessage = (event: Event) => {
     const message = (event as CustomEvent).detail;
     if (message?.type !== 'snapshot') return;
+    const receivedAt = performance.now();
     this.previous = this.latest;
+    this.previousAt = this.latestAt || receivedAt - (1000 / 15);
     this.latest = message as WorldSnapshot;
-    this.latestAt = performance.now();
+    this.latestAt = receivedAt;
     this.observeSnapshot(this.latest, this.previous);
   };
 
@@ -58,6 +64,7 @@ export class CoopGame extends EventTarget {
     ctx.imageSmoothingEnabled = false;
     this.latest = client.snapshot;
     this.latestAt = performance.now();
+    this.previousAt = this.latestAt - (1000 / 15);
     client.addEventListener('message', this.onClientMessage);
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -172,7 +179,7 @@ export class CoopGame extends EventTarget {
       stage5: '/assets/stages/coop-stage5-harbor.svg', stage6: '/assets/stages/coop-stage6-cargo.svg',
     };
     const keys: AtlasKey[] = ['alex', 'matt', 'elisa', 'gaga', 'roxy', 'switch', 'rivet', 'crane'];
-    const total = Object.keys(legacy).length + keys.length * 2;
+    const total = Object.keys(legacy).length + keys.length * 2 + 2;
     let loaded = 0;
     const done = () => onProgress?.(++loaded, total);
     const versioned = (url: string) => `${url}?v=${CoopGame.ASSET_VERSION}`;
@@ -189,6 +196,21 @@ export class CoopGame extends EventTarget {
       this.atlases.set(key, atlas); done();
       await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`)); done();
     }));
+
+    const movementUrl = versioned('/assets/fighters/movement/movement.json');
+    const movementResponse = await fetch(movementUrl, { cache: 'no-cache' });
+    if (!movementResponse.ok) throw new Error(`Asset movement.json non disponibile (HTTP ${movementResponse.status})`);
+    const movement = await movementResponse.json() as MovementManifest;
+    const movementKeys: MovementKey[] = ['alex', 'matt', 'elisa', 'gaga', 'thug', 'ripper', 'heavy'];
+    for (const key of movementKeys) {
+      const atlas = movement.atlases?.[key];
+      if (!atlas?.frames?.length || !atlas.animations?.walk || !atlas.animations?.jump) {
+        throw new Error(`Atlas movimento ${key} non valido`);
+      }
+      this.movementAtlases.set(key, atlas);
+    }
+    done();
+    await this.loadImage('movement', versioned(`/assets/fighters/movement/${movement.image}`)); done();
   }
 
   private async loadImage(key: string, url: string) {
@@ -254,7 +276,9 @@ export class CoopGame extends EventTarget {
       return;
     }
 
-    const alpha = Math.min(1, (now - this.latestAt) / (1000 / 15));
+    const observedInterval = this.latestAt - this.previousAt;
+    const interpolationWindow = Math.max(45, Math.min(120, observedInterval > 0 ? observedInterval : 1000 / 15));
+    const alpha = Math.min(1, (now - this.latestAt) / interpolationWindow);
     const previousPlayers = new Map(this.previous?.players.map(player => [player.slot, player]));
     const previousEnemies = new Map(this.previous?.enemies.map(enemy => [enemy.id, enemy]));
     const camera = this.previous
@@ -382,7 +406,11 @@ export class CoopGame extends EventTarget {
     this.shadow();
     ctx.save();
     ctx.scale(player.facing, 1);
-    if (!this.drawAtlas(key, player.state, player.action, player.actionStartedTick, now, 1.35, snapshot)) {
+    const movementAnimation = player.state === 'jump' ? 'jump' : player.state === 'walk' ? 'walk' : null;
+    const movementDrawn = movementAnimation
+      ? this.drawMovementAtlas(key, movementAnimation, player.actionStartedTick, now, 1.35, snapshot)
+      : false;
+    if (!movementDrawn && !this.drawAtlas(key, player.state, player.action, player.actionStartedTick, now, 1.35, snapshot)) {
       this.drawLegacy('alex', player.state, player.action, player.actionStartedTick, now, snapshot);
     }
     ctx.restore();
@@ -404,8 +432,15 @@ export class CoopGame extends EventTarget {
     this.shadow();
     ctx.save();
     ctx.scale(enemy.facing, 1);
-    const imported = (['roxy', 'switch', 'rivet', 'crane'] as string[]).includes(bossName) &&
+    let imported = (['roxy', 'switch', 'rivet', 'crane'] as string[]).includes(bossName) &&
       this.drawAtlas(bossName, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
+    if (!enemy.kind.startsWith('boss:')) {
+      const movementKey: MovementKey = enemy.kind === 'ripper' ? 'ripper' : enemy.kind === 'heavy' ? 'heavy' : 'thug';
+      const movementAnimation = enemy.state === 'jump'
+        ? 'jump'
+        : (enemy.state === 'walk' || enemy.state.startsWith('entering')) ? 'walk' : null;
+      if (movementAnimation) imported = this.drawMovementAtlas(movementKey, movementAnimation, enemy.actionStartedTick, now, 1.4, snapshot);
+    }
     if (!imported) {
       const key = enemy.kind.startsWith('boss:') ? (bossName === 'dock-master' ? 'dock-master' : 'bruno') : enemy.kind === 'ripper' ? 'ripper' : 'thug';
       this.drawLegacy(key, enemy.state, enemy.action, enemy.actionStartedTick, now, snapshot);
@@ -450,6 +485,37 @@ export class CoopGame extends EventTarget {
     return 0;
   }
 
+  private drawMovementAtlas(key: MovementKey, animationName: 'walk' | 'jump', actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
+    const atlas = this.movementAtlases.get(key);
+    const image = this.images.get('movement');
+    if (!atlas || !image?.complete || !image.naturalWidth) return false;
+    const animation = atlas.animations[animationName];
+    if (!animation) return false;
+    const tickElapsed = Math.max(0, snapshot.tick - actionStartedTick) * (1000 / SIMULATION_HZ);
+    const interpolationElapsed = snapshot.phase === 'paused' ? 0 : Math.max(0, now - this.latestAt);
+    const rawElapsed = tickElapsed + interpolationElapsed;
+    const total = animation.durationsMs.reduce((sum, value) => sum + value, 0) || 1;
+    const elapsed = animation.loop ? rawElapsed % total : Math.min(rawElapsed, total - 1);
+    let accumulator = 0;
+    let frameIndex = animation.frames[animation.frames.length - 1] ?? 0;
+    for (let index = 0; index < animation.frames.length; index++) {
+      accumulator += animation.durationsMs[index] ?? 100;
+      if (elapsed < accumulator) {
+        frameIndex = animation.frames[index];
+        break;
+      }
+    }
+    const frame = atlas.frames[frameIndex] ?? atlas.frames[0];
+    const width = frame.rect.w * scale;
+    const height = frame.rect.h * scale;
+    this.ctx.drawImage(
+      image,
+      frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
+      -width * frame.pivot.x, -height * frame.pivot.y, width, height,
+    );
+    return true;
+  }
+
   private drawAtlas(key: string, state: string, action: string, actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
     const atlas = this.atlases.get(key);
     const image = this.images.get(key);
@@ -491,6 +557,7 @@ export class CoopGame extends EventTarget {
     if (state === 'recover') return atlas.animations.hurt ? 'hurt' : 'idle';
     if (action === 'kick') return atlas.animations.kick ? 'kick' : 'punch';
     if (action === 'punch' || state === 'attack') return 'punch';
+    if (state === 'jump') return atlas.animations.jump ? 'jump' : 'idle';
     if (state === 'walk' || state.startsWith('entering')) return 'walk';
     if (state === 'hurt') return 'hurt';
     if (state === 'ko' || state === 'down') return 'ko';
