@@ -1,0 +1,237 @@
+{
+  "character": "thug",
+  "image": "thug.png",
+  "atlasSize": {
+    "w": 944,
+    "h": 134
+  },
+  "frames": [
+    {
+      "index": 0,
+      "rect": {
+        "x": 4,
+        "y": 4,
+        "w": 72,
+        "h": 126
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 1,
+      "rect": {
+        "x": 82,
+        "y": 4,
+        "w": 72,
+        "h": 126
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 2,
+      "rect": {
+        "x": 160,
+        "y": 6,
+        "w": 80,
+        "h": 124
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 3,
+      "rect": {
+        "x": 246,
+        "y": 7,
+        "w": 78,
+        "h": 123
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 4,
+      "rect": {
+        "x": 330,
+        "y": 8,
+        "w": 80,
+        "h": 122
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 5,
+      "rect": {
+        "x": 416,
+        "y": 18,
+        "w": 101,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 6,
+      "rect": {
+        "x": 523,
+        "y": 18,
+        "w": 128,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 7,
+      "rect": {
+        "x": 657,
+        "y": 18,
+        "w": 80,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 8,
+      "rect": {
+        "x": 743,
+        "y": 18,
+        "w": 101,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 9,
+      "rect": {
+        "x": 850,
+        "y": 6,
+        "w": 90,
+        "h": 124
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    }
+  ],
+  "animations": {
+    "idle": {
+      "frames": [
+        0
+      ],
+      "durationsMs": [
+        500
+      ],
+      "loop": true
+    },
+    "walk": {
+      "frames": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "durationsMs": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "loop": true
+    },
+    "punch": {
+      "frames": [
+        5,
+        6,
+        5
+      ],
+      "durationsMs": [
+        90,
+        110,
+        120
+      ],
+      "loop": false
+    },
+    "kick": {
+      "frames": [
+        5,
+        6,
+        5
+      ],
+      "durationsMs": [
+        90,
+        110,
+        120
+      ],
+      "loop": false
+    },
+    "hurt": {
+      "frames": [
+        7,
+        8,
+        0
+      ],
+      "durationsMs": [
+        110,
+        120,
+        160
+      ],
+      "loop": false
+    },
+    "ko": {
+      "frames": [
+        8
+      ],
+      "durationsMs": [
+        500
+      ],
+      "loop": false
+    },
+    "getup": {
+      "frames": [
+        8,
+        0
+      ],
+      "durationsMs": [
+        220,
+        180
+      ],
+      "loop": false
+    },
+    "jump": {
+      "frames": [
+        9
+      ],
+      "durationsMs": [
+        500
+      ],
+      "loop": true
+    }
+  },
+  "notes": [
+    "Enemy identity-specific atlas. No cross-character fallback. Action/hit frames isolated from source sheet by connected-component extraction."
+  ]
+}
