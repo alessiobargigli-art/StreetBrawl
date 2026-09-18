@@ -68,6 +68,8 @@ export class CoopGame extends EventTarget {
     return this.preloadPromise;
   }
 
+  resetPreload() { this.preloadPromise = undefined; }
+
   start() {
     if (this.running || this.stopped) return;
     if (this.latest && !this.lastStage) this.observeSnapshot(this.latest, undefined);
