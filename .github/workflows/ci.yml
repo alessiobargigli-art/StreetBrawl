@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
       - name: Build browser client
         run: npm run build
       - name: Run shared simulation regression tests
@@ -38,17 +38,7 @@ jobs:
           node --test tests/assets.test.cjs
       - name: Install worker dependencies
         working-directory: worker
-        run: npm install
-      - name: Emit generated lockfiles for consolidation
-        run: |
-          echo "CLIENT_LOCK_BEGIN"
-          base64 -w0 package-lock.json
-          echo
-          echo "CLIENT_LOCK_END"
-          echo "WORKER_LOCK_BEGIN"
-          base64 -w0 worker/package-lock.json
-          echo
-          echo "WORKER_LOCK_END"
+        run: npm ci
       - name: Run room scene/reconnect regression tests
         working-directory: worker
         run: |
