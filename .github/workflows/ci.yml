@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
       - name: Install client dependencies
-        run: npm install
+        run: npm ci
       - name: Build browser client
         run: npm run build
       - name: Run shared simulation regression tests
@@ -54,5 +54,3 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke tests
         run: npm run test:e2e
-      - name: Emit updated root lockfile
-        run: base64 -w0 package-lock.json
