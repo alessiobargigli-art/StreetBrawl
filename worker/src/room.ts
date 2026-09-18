@@ -79,6 +79,8 @@ export class GameRoom {
   private activeScene?: string;
   private sceneReady = new Set<PlayerSlot>();
   private sceneResumePlaying = false;
+  private pendingScenes: string[] = [];
+  private observedStage = 1;
 
   constructor(private readonly ctx: DurableObjectState, private readonly env: Env) {
     void this.ctx;
@@ -173,6 +175,9 @@ export class GameRoom {
           this.send(socket, { type: 'error', code: 'BAD_MESSAGE', message: 'Tutti i giocatori devono essere pronti' });
           break;
         }
+        this.observedStage = this.simulation.state.stage;
+        this.activateScene('opening', true);
+        this.pendingScenes.push('stage-intro-1');
         this.broadcast(this.simulation.snapshot());
         break;
       case 'input':
@@ -188,7 +193,7 @@ export class GameRoom {
         this.applyPauseState();
         break;
       case 'scene-enter':
-        this.enterScene(message.sceneId);
+        if (message.sceneId !== this.activeScene) this.send(socket, { type: 'error', code: 'BAD_MESSAGE', message: 'Scena non attiva sul server' });
         break;
       case 'scene-ready':
         this.markSceneReady(existing.slot, message.sceneId);
@@ -254,14 +259,14 @@ export class GameRoom {
     this.ensureTicking();
   }
 
-  private enterScene(sceneId: string) {
-    if (this.simulation.state.phase !== 'playing' && this.simulation.state.phase !== 'paused') return;
-    if (this.activeScene && this.activeScene !== sceneId) return;
-    if (!this.activeScene) {
-      this.activeScene = sceneId;
-      this.sceneReady.clear();
-      this.sceneResumePlaying = this.simulation.state.phase === 'playing';
+  private activateScene(sceneId: string, resumePlaying = false) {
+    if (this.activeScene) {
+      if (this.activeScene !== sceneId && !this.pendingScenes.includes(sceneId)) this.pendingScenes.push(sceneId);
+      return;
     }
+    this.activeScene = sceneId;
+    this.sceneReady.clear();
+    this.sceneResumePlaying = resumePlaying || this.simulation.state.phase === 'playing';
     this.applyPauseState();
     this.broadcast(this.sceneMessage(true));
   }
@@ -275,15 +280,22 @@ export class GameRoom {
 
   private finishSceneIfReady() {
     if (!this.activeScene) return;
-    const activeSlots = [...this.sessions.values()].map(session => session.slot);
-    if (!activeSlots.length || !activeSlots.every(slot => this.sceneReady.has(slot))) return;
+    const requiredSlots = new Set<PlayerSlot>([...this.sessions.values()].map(session => session.slot));
+    for (const record of this.reconnects.values()) requiredSlots.add(record.slot);
+    if (!requiredSlots.size || ![...requiredSlots].every(slot => this.sceneReady.has(slot))) return;
     const sceneId = this.activeScene;
     this.activeScene = undefined;
     this.sceneReady.clear();
-    if (this.sceneResumePlaying && !this.manualPaused) this.simulation.state.phase = 'playing';
+    const resume = this.sceneResumePlaying;
     this.sceneResumePlaying = false;
     this.broadcast({ type: 'scene', sceneId, active: false, readySlots: [] });
-    this.broadcast(this.simulation.snapshot());
+    const next = this.pendingScenes.shift();
+    if (next) this.activateScene(next, resume);
+    else {
+      if (resume && !this.manualPaused) this.simulation.state.phase = 'playing';
+      this.applyPauseState();
+      this.broadcast(this.simulation.snapshot());
+    }
   }
 
   private sceneMessage(active: boolean): ServerMessage {
@@ -300,7 +312,16 @@ export class GameRoom {
     if (this.tickTimer) return;
     this.tickTimer = setInterval(() => {
       this.pruneReconnects();
+      const beforeStage = this.simulation.state.stage;
+      const beforePhase = this.simulation.state.phase;
       this.simulation.tick();
+      if (this.simulation.state.stage !== beforeStage) {
+        this.observedStage = this.simulation.state.stage;
+        this.activateScene(`stage-outro-${beforeStage}`, true);
+        this.pendingScenes.push(`stage-intro-${this.simulation.state.stage}`);
+      } else if (beforePhase !== 'victory' && this.simulation.state.phase === 'victory') {
+        this.activateScene('finale', false);
+      }
       if (++this.snapshotCounter >= SIMULATION_HZ / SNAPSHOT_HZ) {
         this.snapshotCounter = 0;
         this.broadcast(this.simulation.snapshot());
