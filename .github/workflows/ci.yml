@@ -24,9 +24,33 @@ jobs:
           npx tsc src/shared/campaign.ts src/shared/protocol.ts src/shared/simulation.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-dist --esModuleInterop --skipLibCheck
           printf '{"type":"commonjs"}' > .test-dist/package.json
           node --test tests/simulation.test.cjs
+      - name: Run client reconnect regression tests
+        run: |
+          rm -rf .test-client
+          npx tsc src/online/CoopClient.ts src/shared/protocol.ts src/shared/campaign.ts --target ES2020 --module commonjs --moduleResolution node --outDir .test-client --esModuleInterop --skipLibCheck
+          printf '{"type":"commonjs"}' > .test-client/package.json
+          node --test tests/client-reconnect.test.cjs
       - name: Install worker dependencies
         working-directory: worker
         run: npm install
+      - name: Run room scene/reconnect regression tests
+        working-directory: worker
+        run: |
+          rm -rf ../.test-room
+          npx tsc src/room.ts ../src/shared/protocol.ts ../src/shared/campaign.ts ../src/shared/simulation.ts --target ES2022 --module commonjs --moduleResolution node --outDir ../.test-room --esModuleInterop --skipLibCheck --types @cloudflare/workers-types
+          printf '{"type":"commonjs"}' > ../.test-room/package.json
+          cd ..
+          node --test tests/room-scenes.test.cjs
+      - name: Emit generated lockfiles for consolidation
+        run: |
+          echo "CLIENT_LOCK_BEGIN"
+          base64 -w0 package-lock.json
+          echo
+          echo "CLIENT_LOCK_END"
+          echo "WORKER_LOCK_BEGIN"
+          base64 -w0 worker/package-lock.json
+          echo
+          echo "WORKER_LOCK_END"
       - name: Typecheck authoritative worker and shared simulation
         working-directory: worker
         run: npm run typecheck
