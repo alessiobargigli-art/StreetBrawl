@@ -30,13 +30,13 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [x] Background world-aligned 1:1 con la camera.
 - [x] Clock locale monotono per walk/jump, indipendente dal jitter degli snapshot.
 - [x] Eliminare il fallback Heavy -> Thug.
-- [ ] Verificare la resa SOLO e CO-OP con camera in movimento.
+- [ ] Verificare la resa SOLO e CO-OP con camera in movimento (attesa CI/Playwright sul bundle 1.2.4).
 
 ### Fase B — audit e ricostruzione atlas combat
 - [x] Ricostruire Alex/Matt/Elisa/Gaga dagli originali con frame separati e gutter trasparente.
 - [x] Validare idle, punch 1/2, kick, hurt, down/KO, getup.
 - [x] Test automatico: nessun rect può sovrapporsi a un altro rect.
-- [ ] Test alpha-edge: ogni rect deve avere bordo trasparente minimo dove possibile.
+- [x] PNG caricati e dimensioni validate contro i metadata; crop non sovrapposti.\n- [ ] Test alpha-edge: ogni rect deve avere bordo trasparente minimo dove possibile.
 
 ### Fase C — nuove walk cycle
 - [ ] Generare/approvare frame intermedi coerenti con ogni personaggio.
@@ -45,7 +45,7 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [ ] Durata frame costante e parametrica.
 
 ### Fase D — enemy combat art
-- [x] Preparati atlas identity-specific con attack/hurt/down dedicati per Thug/Ripper/Heavy; upload PNG binari ancora richiesto.
+- [x] Atlas identity-specific con attack/hurt/down dedicati per Thug/Ripper/Heavy caricati sul branch.
 - [x] Nessun fallback cross-character nel renderer.
 - [x] Boss invariati salvo regressioni.
 
@@ -58,4 +58,4 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 
 ## Stato asset binari
 
-I metadata e il renderer sono già sul branch. I PNG puliti sono pronti ma devono essere caricati sul branch nelle path attese prima che la validazione runtime possa diventare verde. La CI deve restare bloccante in caso di dimensioni PNG/metadata non corrispondenti.
+I metadata, il renderer e i PNG puliti sono ora sul branch. La CI verifica firma PNG, dimensioni reali rispetto ai metadata e crop non sovrapposti. Il bundle è versionato 1.2.4 con cache Service Worker ruotata.
