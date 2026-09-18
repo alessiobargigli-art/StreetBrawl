@@ -220,7 +220,7 @@ const startCoopGame = async (client: CoopClient) => {
 
 const workerEndpoint = (window as unknown as { STREETBRAWL_COOP_ENDPOINT?: string }).STREETBRAWL_COOP_ENDPOINT ||
   localStorage.getItem('streetbrawl-coop-endpoint') ||
-  import.meta.env.VITE_STREETBRAWL_COOP_ENDPOINT ||
+  (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_STREETBRAWL_COOP_ENDPOINT ||
   'https://streetbrawl-coop.workers.dev';
 const coopLobby = new CoopLobby(coopScreen, { endpoint: workerEndpoint, onBack: () => void showMenu(), onStarted: client => void startCoopGame(client) });
 const soloLobby = new SoloLobby(coopScreen, () => void showMenu(), character => void startLocalGame(character));
