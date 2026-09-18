@@ -44,6 +44,9 @@ export class CoopClient extends EventTarget {
   lobby?: CoopLobbyState;
   snapshot?: WorldSnapshot;
   activeScene?: string;
+  activeSceneReady = false;
+  sceneRevision = 0;
+  sessionReplaced = false;
   resumedSession = false;
 
   constructor(private readonly endpoint: string) {
@@ -100,6 +103,9 @@ export class CoopClient extends EventTarget {
     this.snapshot = undefined;
     this.lobby = undefined;
     this.activeScene = undefined;
+    this.activeSceneReady = false;
+    this.sceneRevision = 0;
+    this.sessionReplaced = false;
     this.resumedSession = false;
     localStorage.removeItem(SESSION_KEY);
     return this.openSocket(false);
@@ -165,9 +171,11 @@ export class CoopClient extends EventTarget {
         }
 
         if (message.type === 'lobby') this.lobby = message;
-        if (message.type === 'scene') {
-          if (message.active) this.activeScene = message.sceneId;
-          else if (this.activeScene === message.sceneId) this.activeScene = undefined;
+        if (message.type === 'scene' && message.revision >= this.sceneRevision) {
+          this.sceneRevision = message.revision;
+          this.activeScene = message.active ? message.sceneId : undefined;
+          this.activeSceneReady = !!(message.active && this.slot !== undefined && message.readySlots.includes(this.slot));
+          this.dispatchEvent(new CustomEvent('narrative-state', { detail: message }));
         }
         if (message.type === 'snapshot') {
           this.snapshot = message;
@@ -195,13 +203,20 @@ export class CoopClient extends EventTarget {
         finish(new Error('Connessione multiplayer non disponibile'));
       });
 
-      ws.addEventListener('close', () => {
+      ws.addEventListener('close', event => {
         window.clearTimeout(timer);
         if (generation !== this.socketGeneration) { finish(new Error('Connessione sostituita')); return; }
         if (this.socket === ws) this.socket = undefined;
         if (this.connecting === connection) this.connecting = undefined;
         finish(new Error('Connessione chiusa prima del completamento handshake'));
         this.dispatchEvent(new Event('close'));
+        if (event.code === 4000 && event.reason === 'REPLACED') {
+          this.sessionReplaced = true;
+          this.cancelReconnect();
+          this.reconnectUntil = 0;
+          this.dispatchEvent(new Event('session-replaced'));
+          return;
+        }
         if (this.intentionalClose || !this.room || !this.reconnectToken) return;
         if (!this.reconnectUntil) this.reconnectUntil = Date.now() + RECONNECT_WINDOW_MS;
         this.persistSession();
@@ -244,6 +259,9 @@ export class CoopClient extends EventTarget {
       this.room = '';
       this.reconnectUntil = 0;
       this.activeScene = undefined;
+      this.activeSceneReady = false;
+      this.sceneRevision = 0;
+      this.sessionReplaced = false;
       this.resumedSession = false;
       localStorage.removeItem(SESSION_KEY);
     }
@@ -256,6 +274,7 @@ export class CoopClient extends EventTarget {
 
   private scheduleReconnect() {
     this.cancelReconnect();
+    if (this.sessionReplaced) return;
     if (!this.canReconnect) {
       this.dispatchEvent(new Event('reconnect-expired'));
       return;
