@@ -39,10 +39,10 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 - [x] PNG caricati e dimensioni validate contro i metadata; crop non sovrapposti.\n- [ ] Test alpha-edge: ogni rect deve avere bordo trasparente minimo dove possibile.
 
 ### Fase C — nuove walk cycle
-- [ ] Generare/approvare frame intermedi coerenti con ogni personaggio.
-- [ ] Eroi: walk leggibile + jump.
-- [ ] Thug/Ripper/Heavy: stessi criteri e identità stabile in ogni stato.
-- [ ] Durata frame costante e parametrica.
+- [x] Generati e integrati 8 frame walk + 1 jump per ogni personaggio.
+- [x] Eroi: atlas movement separati con 8 walk + 1 jump.
+- [x] Thug/Ripper/Heavy: atlas movement separati con 8 walk + 1 jump e identità stabile.
+- [x] Durata walk costante: 90 ms per frame, clock locale monotono.
 
 ### Fase D — enemy combat art
 - [x] Atlas identity-specific con attack/hurt/down dedicati per Thug/Ripper/Heavy caricati sul branch.
@@ -51,11 +51,11 @@ Correggere il game-feel del movimento e rendere coerente l'uso degli sprite per 
 
 ### Fase E — verifica
 - [ ] Build + simulation/reconnect/room tests.
-- [ ] Asset atlas tests.
+- [x] Asset atlas tests: 9 frame, PNG 1254x1254, crop in-bounds/non-overlap, 8 walk ordinati + jump.
 - [ ] Playwright SOLO + CO-OP.
 - [ ] Check visuale manuale: walk lunga, cambio direzione, salto, hit, KO/getup, 3 archetipi nemici.
 - [ ] Merge solo con CI verde e check visuale.
 
 ## Stato asset binari
 
-I metadata, il renderer e i PNG puliti sono ora sul branch. La CI verifica firma PNG, dimensioni reali rispetto ai metadata e crop non sovrapposti. Il bundle è versionato 1.2.4 con cache Service Worker ruotata.
+I metadata, il renderer e i PNG puliti sono ora sul branch. Il movement usa sette sheet separati 1254x1254 (8 walk + 1 jump), preservando la cella logica 418x418 per evitare jitter di scala/baseline. La CI verifica firma PNG, dimensioni reali, crop in-bounds/non-overlap e timing costante. Il bundle è versionato 1.2.5 con cache Service Worker ruotata.
