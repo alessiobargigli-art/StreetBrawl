@@ -65,6 +65,20 @@ Campaign graphics are release-versioned and decoded before gameplay starts. A fa
 
 ## Online co-op deployment
 
-The browser resolves the multiplayer backend in this order: runtime `window.STREETBRAWL_COOP_ENDPOINT`, localStorage override, build-time `VITE_STREETBRAWL_COOP_ENDPOINT`, then `https://streetbrawl-coop.workers.dev`.
+StreetBrawl is deployed as a **single Cloudflare Worker origin**. The same published URL serves both the Vite game assets and the authoritative multiplayer backend.
 
-Room creation performs a short `/health` check before `POST /rooms`, so an unavailable or stale Worker is reported explicitly instead of looking like a broken lobby. The production Worker must still be deployed separately from the static client.
+The browser always uses `window.location.origin`: there are no hardcoded Worker URLs, localStorage endpoint overrides or build-time endpoint variables.
+
+- `GET /health` — deployment health
+- `POST /rooms` — create a room
+- `/rooms/:code/ws` — authoritative multiplayer WebSocket
+- every other path — static game assets from `dist`
+
+Build and deploy together with:
+
+```bash
+cd worker
+npm run deploy
+```
+
+The deploy script first builds the browser client and then publishes the Worker with the generated `dist` assets.

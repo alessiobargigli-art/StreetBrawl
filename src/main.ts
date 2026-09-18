@@ -13,7 +13,7 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 type InputTarget = { setVirtualKey: (code: string, down: boolean) => void; resetInput: () => void };
 type CampaignClient = CoopClient | LocalCampaignClient;
 
-const VERSION = '1.2.6-audio-online-fix';
+const VERSION = '1.2.7-single-origin';
 let installPrompt: InstallPromptEvent | null = null;
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('Missing #app root');
@@ -218,10 +218,7 @@ const startCoopGame = async (client: CoopClient) => {
   await startCampaignGame(client);
 };
 
-const workerEndpoint = (window as unknown as { STREETBRAWL_COOP_ENDPOINT?: string }).STREETBRAWL_COOP_ENDPOINT ||
-  localStorage.getItem('streetbrawl-coop-endpoint') ||
-  (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env?.VITE_STREETBRAWL_COOP_ENDPOINT ||
-  'https://streetbrawl-coop.workers.dev';
+const workerEndpoint = window.location.origin;
 const coopLobby = new CoopLobby(coopScreen, { endpoint: workerEndpoint, onBack: () => void showMenu(), onStarted: client => void startCoopGame(client) });
 const soloLobby = new SoloLobby(coopScreen, () => void showMenu(), character => void startLocalGame(character));
 

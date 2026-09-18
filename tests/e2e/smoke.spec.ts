@@ -17,9 +17,6 @@ async function enterWithoutAudio(page: Page) {
   await expect(page.getByRole('button', { name: 'GIOCA SOLO' })).toBeVisible();
 }
 
-async function useLocalWorker(page: Page) {
-  await page.addInitScript(() => localStorage.setItem('streetbrawl-coop-endpoint', 'http://127.0.0.1:8787'));
-}
 
 test('audio settings: mute persists across reload', async ({ page }) => {
   await enterWithoutAudio(page);
@@ -59,7 +56,6 @@ test('co-op: two independent browser contexts reach authoritative opening and ga
   const b = await browser.newContext();
   const pa = await a.newPage();
   const pb = await b.newPage();
-  await useLocalWorker(pa); await useLocalWorker(pb);
   await enterWithoutAudio(pa); await enterWithoutAudio(pb);
 
   await pa.getByRole('button', { name: 'CO-OP ONLINE' }).click();
