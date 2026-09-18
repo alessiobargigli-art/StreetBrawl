@@ -12,11 +12,11 @@ type Frame = {
   pivot: { x: number; y: number };
 };
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
-type Atlas = { character: string; atlasSize?: { w: number; h: number }; frames: Frame[]; animations: Record<string, Anim> };
+type Atlas = { character: string; image?: string; atlasSize?: { w: number; h: number }; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
 type EnemyAtlasKey = 'thug' | 'ripper' | 'heavy';
 type MovementKey = CharacterId | EnemyAtlasKey;
-type MovementManifest = { image: string; atlases: Record<MovementKey, Atlas> };
+type MovementManifest = { atlases: Record<MovementKey, Atlas> };
 type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot; activeScene?: string };
 
 export type CoopAudioEvent = {
@@ -46,7 +46,7 @@ export class CoopGame extends EventTarget {
   private lastStage = 0;
   private lastPhase = '';
   private preloadPromise?: Promise<void>;
-  private static readonly ASSET_VERSION = '1.2.4';
+  private static readonly ASSET_VERSION = '1.2.5';
 
   private readonly onClientMessage = (event: Event) => {
     const message = (event as CustomEvent).detail;
@@ -187,7 +187,8 @@ export class CoopGame extends EventTarget {
     };
     const keys: AtlasKey[] = ['alex', 'matt', 'elisa', 'gaga', 'roxy', 'switch', 'rivet', 'crane'];
     const enemyKeys: EnemyAtlasKey[] = ['thug', 'ripper', 'heavy'];
-    const total = Object.keys(legacy).length + keys.length * 2 + enemyKeys.length * 2 + 2;
+    const movementKeys: MovementKey[] = ['alex', 'matt', 'elisa', 'gaga', 'thug', 'ripper', 'heavy'];
+    const total = Object.keys(legacy).length + keys.length * 2 + enemyKeys.length * 2 + 1 + movementKeys.length;
     let loaded = 0;
     const done = () => onProgress?.(++loaded, total);
     const versioned = (url: string) => `${url}?v=${CoopGame.ASSET_VERSION}`;
@@ -224,16 +225,21 @@ export class CoopGame extends EventTarget {
     const movementResponse = await fetch(movementUrl, { cache: 'no-cache' });
     if (!movementResponse.ok) throw new Error(`Asset movement.json non disponibile (HTTP ${movementResponse.status})`);
     const movement = await movementResponse.json() as MovementManifest;
-    const movementKeys: MovementKey[] = ['alex', 'matt', 'elisa', 'gaga', 'thug', 'ripper', 'heavy'];
-    for (const key of movementKeys) {
+    done();
+    await Promise.all(movementKeys.map(async key => {
       const atlas = movement.atlases?.[key];
-      if (!atlas?.frames?.length || !atlas.animations?.walk || !atlas.animations?.jump) {
+      if (!atlas?.frames?.length || !atlas.image || !atlas.animations?.walk || !atlas.animations?.jump) {
         throw new Error(`Atlas movimento ${key} non valido`);
       }
+      if (atlas.frames.length !== 9 || atlas.animations.walk.frames.length !== 8 || atlas.animations.jump.frames.length !== 1) {
+        throw new Error(`Atlas movimento ${key} deve avere 8 frame walk + 1 jump`);
+      }
       this.movementAtlases.set(key, atlas);
-    }
-    done();
-    await this.loadImage('movement', versioned(`/assets/fighters/movement/${movement.image}`)); done();
+      const imageKey = `movement:${key}`;
+      await this.loadImage(imageKey, versioned(`/assets/fighters/movement/${atlas.image}`));
+      this.validateAtlasImage(imageKey, atlas);
+      done();
+    }));
   }
 
   private validateAtlasImage(key: string, atlas: Atlas) {
@@ -545,16 +551,27 @@ export class CoopGame extends EventTarget {
 
   private drawMovementFrame(key: MovementKey, frameIndex: number, scale: number) {
     const atlas = this.movementAtlases.get(key);
-    const image = this.images.get('movement');
+    const image = this.images.get(`movement:${key}`);
     if (!atlas || !image?.complete || !image.naturalWidth) return false;
     const frame = atlas.frames[frameIndex] ?? atlas.frames[0];
     if (!frame) return false;
-    const width = frame.rect.w * scale;
-    const height = frame.rect.h * scale;
+
+    // New movement sheets use a 418x418 logical cell for every pose. Draw the trimmed
+    // opaque region back into that logical cell so the fighter keeps a stable baseline,
+    // scale and center while the eight walk in-betweens cycle.
+    const source = frame.sourceSize ?? { w: frame.rect.w, h: frame.rect.h };
+    const trim = frame.trimOffset ?? { x: 0, y: 0 };
+    const logicalHeight = 112;
+    const logicalScale = (logicalHeight / source.h) * scale;
+    const width = frame.rect.w * logicalScale;
+    const height = frame.rect.h * logicalScale;
+    const x = (-source.w * this.clamp01(frame.pivot.x) + trim.x) * logicalScale;
+    const y = (-source.h * this.clamp01(frame.pivot.y) + trim.y) * logicalScale;
+
     this.ctx.drawImage(
       image,
       frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
-      -width * frame.pivot.x, -height * frame.pivot.y, width, height,
+      x, y, width, height,
     );
     return true;
   }
