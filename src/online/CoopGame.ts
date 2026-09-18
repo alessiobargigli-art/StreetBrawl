@@ -97,7 +97,16 @@ export class CoopGame extends EventTarget {
     if (!this.lastStage) {
       this.lastStage = current.stage;
       this.lastPhase = current.phase;
-      this.dispatchEvent(new CustomEvent('story', { detail: { kind: 'stage-intro', stage: current.stage } }));
+      const bossPresent = current.enemies.some(enemy => enemy.kind.startsWith('boss:'));
+      this.emitAudio({ music: bossPresent ? STAGES[current.stage - 1].bossMusic : STAGES[current.stage - 1].music });
+      if (current.phase === 'victory') {
+        this.dispatchEvent(new CustomEvent('story', { detail: { kind: 'finale', stage: current.stage } }));
+        this.emitAudio({ sfx: 'victory', stopMusic: true });
+      } else if (current.phase === 'game-over') {
+        this.emitAudio({ sfx: 'gameOver', stopMusic: true });
+      } else if (!this.client.activeScene) {
+        this.dispatchEvent(new CustomEvent('story', { detail: { kind: 'stage-intro', stage: current.stage } }));
+      }
     } else if (current.stage !== this.lastStage) {
       const old = this.lastStage;
       this.lastStage = current.stage;
