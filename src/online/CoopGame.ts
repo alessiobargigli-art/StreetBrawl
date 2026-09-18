@@ -12,7 +12,7 @@ type Frame = {
   pivot: { x: number; y: number };
 };
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
-type Atlas = { character: string; frames: Frame[]; animations: Record<string, Anim> };
+type Atlas = { character: string; atlasSize?: { w: number; h: number }; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
 type MovementKey = CharacterId | 'thug' | 'ripper' | 'heavy';
 type MovementManifest = { image: string; atlases: Record<MovementKey, Atlas> };
@@ -199,7 +199,9 @@ export class CoopGame extends EventTarget {
       const atlas = await response.json() as Atlas;
       if (!atlas.frames?.length || !atlas.animations?.idle) throw new Error(`Atlas ${key} non valido`);
       this.atlases.set(key, atlas); done();
-      await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`)); done();
+      await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`));
+      if (dir === 'coop') this.validateAtlasImage(key, atlas);
+      done();
     }));
 
     const movementUrl = versioned('/assets/fighters/movement/movement.json');
@@ -216,6 +218,29 @@ export class CoopGame extends EventTarget {
     }
     done();
     await this.loadImage('movement', versioned(`/assets/fighters/movement/${movement.image}`)); done();
+  }
+
+  private validateAtlasImage(key: string, atlas: Atlas) {
+    const image = this.images.get(key);
+    if (!image?.naturalWidth || !image.naturalHeight) throw new Error(`Immagine ${key} non disponibile per validazione atlas`);
+    if (atlas.atlasSize && (atlas.atlasSize.w !== image.naturalWidth || atlas.atlasSize.h !== image.naturalHeight)) {
+      throw new Error(`Atlas ${key} non corrisponde al PNG: metadata ${atlas.atlasSize.w}x${atlas.atlasSize.h}, immagine ${image.naturalWidth}x${image.naturalHeight}`);
+    }
+    for (const frame of atlas.frames) {
+      const { x, y, w, h } = frame.rect;
+      if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > image.naturalWidth || y + h > image.naturalHeight) {
+        throw new Error(`Frame ${key}#${frame.index} fuori dai limiti dell'immagine`);
+      }
+    }
+    for (let i = 0; i < atlas.frames.length; i++) {
+      for (let j = i + 1; j < atlas.frames.length; j++) {
+        const a = atlas.frames[i].rect;
+        const b = atlas.frames[j].rect;
+        const overlapW = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+        const overlapH = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+        if (overlapW * overlapH > 0) throw new Error(`Frame ${key}#${i} sovrapposto a ${key}#${j}`);
+      }
+    }
   }
 
   private async loadImage(key: string, url: string) {
@@ -571,8 +596,8 @@ export class CoopGame extends EventTarget {
     const width = frame.rect.w * scale;
     const height = frame.rect.h * scale;
     const source = frame.sourceSize;
-    const pivotX = source ? this.clamp01((frame.pivot.x * source.w - frame.rect.x) / frame.rect.w) : 0.5;
-    const pivotY = source ? this.clamp01((frame.pivot.y * source.h - frame.rect.y) / frame.rect.h) : 1;
+    const pivotX = source ? this.clamp01((frame.pivot.x * source.w - frame.rect.x) / frame.rect.w) : this.clamp01(frame.pivot.x);
+    const pivotY = source ? this.clamp01((frame.pivot.y * source.h - frame.rect.y) / frame.rect.h) : this.clamp01(frame.pivot.y);
     this.ctx.drawImage(
       image,
       frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
