@@ -46,7 +46,7 @@ export class CoopGame extends EventTarget {
   private lastStage = 0;
   private lastPhase = '';
   private preloadPromise?: Promise<void>;
-  private static readonly ASSET_VERSION = '1.2.3';
+  private static readonly ASSET_VERSION = '1.2.4';
 
   private readonly onClientMessage = (event: Event) => {
     const message = (event as CustomEvent).detail;
