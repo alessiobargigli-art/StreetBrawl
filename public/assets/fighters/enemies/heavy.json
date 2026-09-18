@@ -1,18 +1,18 @@
 {
-  "character": "gaga",
-  "image": "gaga.png",
+  "character": "heavy",
+  "image": "heavy.png",
   "atlasSize": {
-    "w": 726,
-    "h": 122
+    "w": 935,
+    "h": 133
   },
   "frames": [
     {
       "index": 0,
       "rect": {
-        "x": 2,
-        "y": 2,
-        "w": 72,
-        "h": 118
+        "x": 4,
+        "y": 4,
+        "w": 80,
+        "h": 125
       },
       "pivot": {
         "x": 0.5,
@@ -22,10 +22,10 @@
     {
       "index": 1,
       "rect": {
-        "x": 78,
-        "y": 2,
-        "w": 74,
-        "h": 118
+        "x": 90,
+        "y": 4,
+        "w": 80,
+        "h": 125
       },
       "pivot": {
         "x": 0.5,
@@ -35,10 +35,10 @@
     {
       "index": 2,
       "rect": {
-        "x": 156,
-        "y": 8,
-        "w": 94,
-        "h": 112
+        "x": 176,
+        "y": 5,
+        "w": 77,
+        "h": 124
       },
       "pivot": {
         "x": 0.5,
@@ -48,10 +48,10 @@
     {
       "index": 3,
       "rect": {
-        "x": 254,
-        "y": 9,
-        "w": 98,
-        "h": 111
+        "x": 259,
+        "y": 5,
+        "w": 80,
+        "h": 124
       },
       "pivot": {
         "x": 0.5,
@@ -61,10 +61,10 @@
     {
       "index": 4,
       "rect": {
-        "x": 356,
-        "y": 4,
-        "w": 112,
-        "h": 116
+        "x": 345,
+        "y": 5,
+        "w": 85,
+        "h": 124
       },
       "pivot": {
         "x": 0.5,
@@ -74,10 +74,10 @@
     {
       "index": 5,
       "rect": {
-        "x": 472,
-        "y": 13,
-        "w": 65,
-        "h": 107
+        "x": 436,
+        "y": 17,
+        "w": 95,
+        "h": 112
       },
       "pivot": {
         "x": 0.5,
@@ -87,10 +87,10 @@
     {
       "index": 6,
       "rect": {
-        "x": 541,
-        "y": 88,
-        "w": 113,
-        "h": 32
+        "x": 537,
+        "y": 17,
+        "w": 99,
+        "h": 112
       },
       "pivot": {
         "x": 0.5,
@@ -100,10 +100,36 @@
     {
       "index": 7,
       "rect": {
-        "x": 658,
-        "y": 39,
-        "w": 66,
-        "h": 81
+        "x": 642,
+        "y": 17,
+        "w": 81,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 8,
+      "rect": {
+        "x": 729,
+        "y": 17,
+        "w": 99,
+        "h": 112
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      }
+    },
+    {
+      "index": 9,
+      "rect": {
+        "x": 834,
+        "y": 5,
+        "w": 97,
+        "h": 124
       },
       "pivot": {
         "x": 0.5,
@@ -117,91 +143,95 @@
         0
       ],
       "durationsMs": [
-        600
+        500
       ],
       "loop": true
     },
     "walk": {
       "frames": [
-        0,
         1,
-        0,
-        1
+        2,
+        3,
+        4
       ],
       "durationsMs": [
-        120,
-        120,
-        120,
-        120
+        100,
+        100,
+        100,
+        100
       ],
-      "loop": true,
-      "status": "fallback-unused-by-movement-atlas"
+      "loop": true
     },
     "punch": {
       "frames": [
-        0,
-        2,
-        3,
-        0
+        5,
+        6,
+        5
       ],
       "durationsMs": [
-        80,
         90,
-        100,
+        110,
         120
       ],
       "loop": false
     },
     "kick": {
       "frames": [
-        0,
-        4,
-        0
+        5,
+        6,
+        5
       ],
       "durationsMs": [
-        100,
-        150,
-        170
+        90,
+        110,
+        120
       ],
       "loop": false
     },
     "hurt": {
       "frames": [
-        5,
+        7,
+        8,
         0
       ],
       "durationsMs": [
-        140,
+        110,
+        120,
         160
       ],
       "loop": false
     },
     "ko": {
       "frames": [
-        5,
-        6
+        8
       ],
       "durationsMs": [
-        120,
         500
       ],
       "loop": false
     },
     "getup": {
       "frames": [
-        6,
-        7,
+        8,
         0
       ],
       "durationsMs": [
-        200,
-        210,
-        170
+        220,
+        180
       ],
       "loop": false
+    },
+    "jump": {
+      "frames": [
+        9
+      ],
+      "durationsMs": [
+        500
+      ],
+      "loop": true
     }
   },
   "notes": [
-    "Frames rebuilt from isolated transparent poses with non-overlapping bounds and explicit gutters."
+    "Enemy identity-specific atlas. No cross-character fallback. Action/hit frames isolated from source sheet by connected-component extraction."
   ]
 }

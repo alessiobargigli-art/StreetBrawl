@@ -12,10 +12,11 @@ type Frame = {
   pivot: { x: number; y: number };
 };
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
-type Atlas = { character: string; frames: Frame[]; animations: Record<string, Anim> };
+type Atlas = { character: string; image?: string; atlasSize?: { w: number; h: number }; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
-type MovementKey = CharacterId | 'thug' | 'ripper' | 'heavy';
-type MovementManifest = { image: string; atlases: Record<MovementKey, Atlas> };
+type EnemyAtlasKey = 'thug' | 'ripper' | 'heavy';
+type MovementKey = CharacterId | EnemyAtlasKey;
+type MovementManifest = { atlases: Record<MovementKey, Atlas> };
 type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot; activeScene?: string };
 
 export type CoopAudioEvent = {
@@ -40,10 +41,12 @@ export class CoopGame extends EventTarget {
   private images = new Map<string, HTMLImageElement>();
   private atlases = new Map<string, Atlas>();
   private movementAtlases = new Map<MovementKey, Atlas>();
+  private enemyAtlases = new Map<EnemyAtlasKey, Atlas>();
+  private animationClocks = new Map<string, { state: string; elapsed: number; lastAt: number }>();
   private lastStage = 0;
   private lastPhase = '';
   private preloadPromise?: Promise<void>;
-  private static readonly ASSET_VERSION = '1.2.3';
+  private static readonly ASSET_VERSION = '1.2.5';
 
   private readonly onClientMessage = (event: Event) => {
     const message = (event as CustomEvent).detail;
@@ -91,6 +94,7 @@ export class CoopGame extends EventTarget {
     cancelAnimationFrame(this.raf);
     this.keys.clear();
     this.virtual.clear();
+    this.animationClocks.clear();
     this.client.removeEventListener('message', this.onClientMessage);
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
@@ -154,7 +158,10 @@ export class CoopGame extends EventTarget {
     }
 
     for (const enemy of previous.enemies) {
-      if (!currentEnemies.has(enemy.id) && enemy.health > 0) this.emitAudio({ sfx: 'enemyKo' });
+      if (!currentEnemies.has(enemy.id)) {
+        this.animationClocks.delete(`enemy:${enemy.id}`);
+        if (enemy.health > 0) this.emitAudio({ sfx: 'enemyKo' });
+      }
     }
 
     for (const player of current.players) {
@@ -179,7 +186,9 @@ export class CoopGame extends EventTarget {
       stage5: '/assets/stages/coop-stage5-harbor.svg', stage6: '/assets/stages/coop-stage6-cargo.svg',
     };
     const keys: AtlasKey[] = ['alex', 'matt', 'elisa', 'gaga', 'roxy', 'switch', 'rivet', 'crane'];
-    const total = Object.keys(legacy).length + keys.length * 2 + 2;
+    const enemyKeys: EnemyAtlasKey[] = ['thug', 'ripper', 'heavy'];
+    const movementKeys: MovementKey[] = ['alex', 'matt', 'elisa', 'gaga', 'thug', 'ripper', 'heavy'];
+    const total = Object.keys(legacy).length + keys.length * 2 + enemyKeys.length * 2 + 1 + movementKeys.length;
     let loaded = 0;
     const done = () => onProgress?.(++loaded, total);
     const versioned = (url: string) => `${url}?v=${CoopGame.ASSET_VERSION}`;
@@ -194,23 +203,66 @@ export class CoopGame extends EventTarget {
       const atlas = await response.json() as Atlas;
       if (!atlas.frames?.length || !atlas.animations?.idle) throw new Error(`Atlas ${key} non valido`);
       this.atlases.set(key, atlas); done();
-      await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`)); done();
+      await this.loadImage(key, versioned(`/assets/fighters/${dir}/${key}.png`));
+      if (dir === 'coop') this.validateAtlasImage(key, atlas);
+      done();
+    }));
+
+    await Promise.all(enemyKeys.map(async key => {
+      const response = await fetch(versioned(`/assets/fighters/enemies/${key}.json`), { cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Asset nemico ${key}.json non disponibile (HTTP ${response.status})`);
+      const atlas = await response.json() as Atlas;
+      if (!atlas.frames?.length || !atlas.animations?.idle || !atlas.animations?.walk || !atlas.animations?.punch || !atlas.animations?.hurt) {
+        throw new Error(`Atlas nemico ${key} non valido`);
+      }
+      this.enemyAtlases.set(key, atlas); done();
+      await this.loadImage(`enemy:${key}`, versioned(`/assets/fighters/enemies/${key}.png`));
+      this.validateAtlasImage(`enemy:${key}`, atlas);
+      done();
     }));
 
     const movementUrl = versioned('/assets/fighters/movement/movement.json');
     const movementResponse = await fetch(movementUrl, { cache: 'no-cache' });
     if (!movementResponse.ok) throw new Error(`Asset movement.json non disponibile (HTTP ${movementResponse.status})`);
     const movement = await movementResponse.json() as MovementManifest;
-    const movementKeys: MovementKey[] = ['alex', 'matt', 'elisa', 'gaga', 'thug', 'ripper', 'heavy'];
-    for (const key of movementKeys) {
+    done();
+    await Promise.all(movementKeys.map(async key => {
       const atlas = movement.atlases?.[key];
-      if (!atlas?.frames?.length || !atlas.animations?.walk || !atlas.animations?.jump) {
+      if (!atlas?.frames?.length || !atlas.image || !atlas.animations?.walk || !atlas.animations?.jump) {
         throw new Error(`Atlas movimento ${key} non valido`);
       }
+      if (atlas.frames.length !== 9 || atlas.animations.walk.frames.length !== 8 || atlas.animations.jump.frames.length !== 1) {
+        throw new Error(`Atlas movimento ${key} deve avere 8 frame walk + 1 jump`);
+      }
       this.movementAtlases.set(key, atlas);
+      const imageKey = `movement:${key}`;
+      await this.loadImage(imageKey, versioned(`/assets/fighters/movement/${atlas.image}`));
+      this.validateAtlasImage(imageKey, atlas);
+      done();
+    }));
+  }
+
+  private validateAtlasImage(key: string, atlas: Atlas) {
+    const image = this.images.get(key);
+    if (!image?.naturalWidth || !image.naturalHeight) throw new Error(`Immagine ${key} non disponibile per validazione atlas`);
+    if (atlas.atlasSize && (atlas.atlasSize.w !== image.naturalWidth || atlas.atlasSize.h !== image.naturalHeight)) {
+      throw new Error(`Atlas ${key} non corrisponde al PNG: metadata ${atlas.atlasSize.w}x${atlas.atlasSize.h}, immagine ${image.naturalWidth}x${image.naturalHeight}`);
     }
-    done();
-    await this.loadImage('movement', versioned(`/assets/fighters/movement/${movement.image}`)); done();
+    for (const frame of atlas.frames) {
+      const { x, y, w, h } = frame.rect;
+      if (x < 0 || y < 0 || w <= 0 || h <= 0 || x + w > image.naturalWidth || y + h > image.naturalHeight) {
+        throw new Error(`Frame ${key}#${frame.index} fuori dai limiti dell'immagine`);
+      }
+    }
+    for (let i = 0; i < atlas.frames.length; i++) {
+      for (let j = i + 1; j < atlas.frames.length; j++) {
+        const a = atlas.frames[i].rect;
+        const b = atlas.frames[j].rect;
+        const overlapW = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+        const overlapH = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+        if (overlapW * overlapH > 0) throw new Error(`Frame ${key}#${i} sovrapposto a ${key}#${j}`);
+      }
+    }
   }
 
   private async loadImage(key: string, url: string) {
@@ -313,7 +365,10 @@ export class CoopGame extends EventTarget {
     if (image?.complete && image.naturalWidth) {
       const scale = canvas.height / image.naturalHeight;
       const width = image.naturalWidth * scale;
-      for (let x = -(camera * 0.35 % width); x < canvas.width; x += width) ctx.drawImage(image, x, 0, width, canvas.height);
+      // This artwork contains the playable ground plane, so it must track the world camera 1:1.
+      // Applying parallax here made the player look as if they accelerated and then slowed down
+      // once the camera started following, while enemies appeared unnaturally fast.
+      for (let x = -(camera % width); x < canvas.width; x += width) ctx.drawImage(image, x, 0, width, canvas.height);
       ctx.fillStyle = 'rgba(5,8,18,.18)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       return;
@@ -408,7 +463,7 @@ export class CoopGame extends EventTarget {
     ctx.scale(player.facing, 1);
     const movementAnimation = player.state === 'jump' ? 'jump' : player.state === 'walk' ? 'walk' : null;
     const movementDrawn = movementAnimation
-      ? this.drawMovementAtlas(key, movementAnimation, player.actionStartedTick, now, 1.35, snapshot)
+      ? this.drawMovementAtlas(key, movementAnimation, `player:${player.slot}`, now, 1.35, snapshot)
       : false;
     if (!movementDrawn && !this.drawAtlas(key, player.state, player.action, player.actionStartedTick, now, 1.35, snapshot)) {
       this.drawLegacy('alex', player.state, player.action, player.actionStartedTick, now, snapshot);
@@ -435,11 +490,8 @@ export class CoopGame extends EventTarget {
     let imported = (['roxy', 'switch', 'rivet', 'crane'] as string[]).includes(bossName) &&
       this.drawAtlas(bossName, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
     if (!enemy.kind.startsWith('boss:')) {
-      const movementKey: MovementKey = enemy.kind === 'ripper' ? 'ripper' : enemy.kind === 'heavy' ? 'heavy' : 'thug';
-      const movementAnimation = enemy.state === 'jump'
-        ? 'jump'
-        : (enemy.state === 'walk' || enemy.state.startsWith('entering')) ? 'walk' : null;
-      if (movementAnimation) imported = this.drawMovementAtlas(movementKey, movementAnimation, enemy.actionStartedTick, now, 1.4, snapshot);
+      const enemyKey: EnemyAtlasKey = enemy.kind === 'ripper' ? 'ripper' : enemy.kind === 'heavy' ? 'heavy' : 'thug';
+      imported = this.drawEnemyAtlas(enemyKey, enemy.state, enemy.action, enemy.actionStartedTick, now, 1.4, snapshot);
     }
     if (!imported) {
       const key = enemy.kind.startsWith('boss:') ? (bossName === 'dock-master' ? 'dock-master' : 'bruno') : enemy.kind === 'ripper' ? 'ripper' : 'thug';
@@ -485,12 +537,73 @@ export class CoopGame extends EventTarget {
     return 0;
   }
 
-  private drawMovementAtlas(key: MovementKey, animationName: 'walk' | 'jump', actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
+  private movementElapsed(clockKey: string, state: string, now: number, paused: boolean) {
+    const current = this.animationClocks.get(clockKey);
+    if (!current || current.state !== state) {
+      this.animationClocks.set(clockKey, { state, elapsed: 0, lastAt: now });
+      return 0;
+    }
+    const delta = Math.max(0, Math.min(100, now - current.lastAt));
+    current.lastAt = now;
+    if (!paused) current.elapsed += delta;
+    return current.elapsed;
+  }
+
+  private drawMovementFrame(key: MovementKey, frameIndex: number, scale: number) {
     const atlas = this.movementAtlases.get(key);
-    const image = this.images.get('movement');
+    const image = this.images.get(`movement:${key}`);
     if (!atlas || !image?.complete || !image.naturalWidth) return false;
+    const frame = atlas.frames[frameIndex] ?? atlas.frames[0];
+    if (!frame) return false;
+
+    // New movement sheets use a 418x418 logical cell for every pose. Draw the trimmed
+    // opaque region back into that logical cell so the fighter keeps a stable baseline,
+    // scale and center while the eight walk in-betweens cycle.
+    const source = frame.sourceSize ?? { w: frame.rect.w, h: frame.rect.h };
+    const trim = frame.trimOffset ?? { x: 0, y: 0 };
+    const logicalHeight = 112;
+    const logicalScale = (logicalHeight / source.h) * scale;
+    const width = frame.rect.w * logicalScale;
+    const height = frame.rect.h * logicalScale;
+    const x = (-source.w * this.clamp01(frame.pivot.x) + trim.x) * logicalScale;
+    const y = (-source.h * this.clamp01(frame.pivot.y) + trim.y) * logicalScale;
+
+    this.ctx.drawImage(
+      image,
+      frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
+      x, y, width, height,
+    );
+    return true;
+  }
+
+  private drawMovementAtlas(key: MovementKey, animationName: 'walk' | 'jump', clockKey: string, now: number, scale: number, snapshot: WorldSnapshot) {
+    const atlas = this.movementAtlases.get(key);
+    if (!atlas) return false;
     const animation = atlas.animations[animationName];
     if (!animation) return false;
+    // Movement animation uses a renderer-local monotonic clock. Network snapshot jitter must
+    // never speed up or slow down the walk cycle.
+    const rawElapsed = this.movementElapsed(clockKey, animationName, now, snapshot.phase === 'paused');
+    const total = animation.durationsMs.reduce((sum, value) => sum + value, 0) || 1;
+    const elapsed = animation.loop ? rawElapsed % total : Math.min(rawElapsed, total - 1);
+    let accumulator = 0;
+    let frameIndex = animation.frames[animation.frames.length - 1] ?? 0;
+    for (let index = 0; index < animation.frames.length; index++) {
+      accumulator += animation.durationsMs[index] ?? 100;
+      if (elapsed < accumulator) {
+        frameIndex = animation.frames[index];
+        break;
+      }
+    }
+    return this.drawMovementFrame(key, frameIndex, scale);
+  }
+
+  private drawEnemyAtlas(key: EnemyAtlasKey, state: string, action: string, actionStartedTick: number, now: number, scale: number, snapshot: WorldSnapshot) {
+    const atlas = this.enemyAtlases.get(key);
+    const image = this.images.get(`enemy:${key}`);
+    if (!atlas || !image?.complete || !image.naturalWidth) return false;
+    const animationName = this.animFor(state, action, atlas);
+    const animation = atlas.animations[animationName] ?? atlas.animations.idle;
     const tickElapsed = Math.max(0, snapshot.tick - actionStartedTick) * (1000 / SIMULATION_HZ);
     const interpolationElapsed = snapshot.phase === 'paused' ? 0 : Math.max(0, now - this.latestAt);
     const rawElapsed = tickElapsed + interpolationElapsed;
@@ -511,7 +624,7 @@ export class CoopGame extends EventTarget {
     this.ctx.drawImage(
       image,
       frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
-      -width * frame.pivot.x, -height * frame.pivot.y, width, height,
+      -width * this.clamp01(frame.pivot.x), -height * this.clamp01(frame.pivot.y), width, height,
     );
     return true;
   }
@@ -541,8 +654,8 @@ export class CoopGame extends EventTarget {
     const width = frame.rect.w * scale;
     const height = frame.rect.h * scale;
     const source = frame.sourceSize;
-    const pivotX = source ? this.clamp01((frame.pivot.x * source.w - frame.rect.x) / frame.rect.w) : 0.5;
-    const pivotY = source ? this.clamp01((frame.pivot.y * source.h - frame.rect.y) / frame.rect.h) : 1;
+    const pivotX = source ? this.clamp01((frame.pivot.x * source.w - frame.rect.x) / frame.rect.w) : this.clamp01(frame.pivot.x);
+    const pivotY = source ? this.clamp01((frame.pivot.y * source.h - frame.rect.y) / frame.rect.h) : this.clamp01(frame.pivot.y);
     this.ctx.drawImage(
       image,
       frame.rect.x, frame.rect.y, frame.rect.w, frame.rect.h,
