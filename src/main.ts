@@ -7,7 +7,7 @@ import { SoloLobby } from './online/SoloLobby';
 import { StoryOverlay } from './online/StoryOverlay';
 import { INTRO, STAGE_INTROS, STAGE_OUTROS, FINALE, type StoryScene } from './shared/story';
 import type { CharacterId } from './shared/campaign';
-import type { CoopClient } from './online/CoopClient';
+import { CoopClient } from './online/CoopClient';
 
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }> };
 type InputTarget = { setVirtualKey: (code: string, down: boolean) => void; resetInput: () => void };
