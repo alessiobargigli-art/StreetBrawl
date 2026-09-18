@@ -81,6 +81,7 @@ export class GameRoom {
   private sceneResumePlaying = false;
   private pendingScenes: string[] = [];
   private observedStage = 1;
+  private sceneRevision = 0;
 
   constructor(private readonly ctx: DurableObjectState, private readonly env: Env) {
     void this.ctx;
@@ -255,7 +256,7 @@ export class GameRoom {
     this.send(socket, { type: 'welcome', protocol: PROTOCOL_VERSION, room: this.code, slot, reconnectToken: token });
     this.broadcastLobby();
     if (this.simulation.state.phase !== 'lobby') this.send(socket, this.simulation.snapshot());
-    if (this.activeScene) this.send(socket, this.sceneMessage(true));
+    this.send(socket, this.sceneMessage(!!this.activeScene));
     this.ensureTicking();
   }
 
@@ -265,6 +266,7 @@ export class GameRoom {
       return;
     }
     this.activeScene = sceneId;
+    this.sceneRevision++;
     this.sceneReady.clear();
     this.sceneResumePlaying = resumePlaying || this.simulation.state.phase === 'playing';
     this.applyPauseState();
@@ -288,7 +290,8 @@ export class GameRoom {
     this.sceneReady.clear();
     const resume = this.sceneResumePlaying;
     this.sceneResumePlaying = false;
-    this.broadcast({ type: 'scene', sceneId, active: false, readySlots: [] });
+    this.sceneRevision++;
+    this.broadcast({ type: 'scene', sceneId, active: false, readySlots: [], revision: this.sceneRevision });
     const next = this.pendingScenes.shift();
     if (next) this.activateScene(next, resume);
     else {
@@ -299,7 +302,7 @@ export class GameRoom {
   }
 
   private sceneMessage(active: boolean): ServerMessage {
-    return { type: 'scene', sceneId: this.activeScene ?? '', active, readySlots: [...this.sceneReady] };
+    return { type: 'scene', sceneId: this.activeScene ?? '', active, readySlots: [...this.sceneReady], revision: this.sceneRevision };
   }
 
   private applyPauseState() {
