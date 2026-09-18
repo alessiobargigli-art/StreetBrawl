@@ -61,3 +61,10 @@ Automated CI verifies the TypeScript/Vite production build. Real-device checks r
 ## Campaign asset loading
 
 Campaign graphics are release-versioned and decoded before gameplay starts. A failed required atlas/image keeps gameplay stopped and exposes retry or exit instead of silently falling back to a partially mixed cache. The co-op Worker endpoint in source is configuration only; public multiplayer is not considered verified without an explicit two-client deployment test.
+
+
+## Online co-op deployment
+
+The browser resolves the multiplayer backend in this order: runtime `window.STREETBRAWL_COOP_ENDPOINT`, localStorage override, build-time `VITE_STREETBRAWL_COOP_ENDPOINT`, then `https://streetbrawl-coop.workers.dev`.
+
+Room creation performs a short `/health` check before `POST /rooms`, so an unavailable or stale Worker is reported explicitly instead of looking like a broken lobby. The production Worker must still be deployed separately from the static client.
