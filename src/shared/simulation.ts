@@ -624,7 +624,7 @@ export class AuthoritativeSimulation {
 
   private resolvePlayerAttacks() {
     for (const p of this.state.players) {
-      if (!p.connected) continue;
+      if (!p.connected || p.state === 'hurt' || p.state === 'down' || p.state === 'getup' || p.state === 'ko') continue;
       const rt = this.players.get(p.slot);
       if (!rt?.attack) continue;
       const attack = rt.attack;
@@ -711,6 +711,11 @@ export class AuthoritativeSimulation {
     if (!p || !rt || p.state === 'ko' || p.state === 'down' || p.state === 'getup' || rt.invulnTicks > 0 || p.z > 0.68) return;
 
     p.health = Math.max(0, p.health - Math.max(0, damage));
+    rt.attack = undefined;
+    rt.queuedPunch = false;
+    rt.queuedKick = false;
+    rt.queuedJump = false;
+    rt.input = { ...EMPTY };
     if (p.health > 0) {
       rt.hurtTicks = 9;
       this.setPlayerState(p, 'hurt', 'hurt');
