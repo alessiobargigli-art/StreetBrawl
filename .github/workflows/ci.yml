@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
       - name: Install client dependencies
-        run: npm ci
+        run: npm install
       - name: Build browser client
         run: npm run build
       - name: Run shared simulation regression tests
@@ -50,3 +50,9 @@ jobs:
       - name: Typecheck authoritative worker and shared simulation
         working-directory: worker
         run: npm run typecheck
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run browser smoke tests
+        run: npm run test:e2e
+      - name: Emit updated root lockfile
+        run: base64 -w0 package-lock.json
