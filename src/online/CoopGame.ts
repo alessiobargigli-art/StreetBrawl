@@ -14,7 +14,7 @@ type Frame = {
 type Anim = { frames: number[]; durationsMs: number[]; loop: boolean };
 type Atlas = { character: string; frames: Frame[]; animations: Record<string, Anim> };
 type AtlasKey = CharacterId | 'roxy' | 'switch' | 'rivet' | 'crane';
-type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot };
+type GameClient = Pick<CoopClient, 'slot' | 'sendInput' | 'addEventListener' | 'removeEventListener'> & { snapshot?: WorldSnapshot; activeScene?: string };
 
 export type CoopAudioEvent = {
   sfx?: 'punch' | 'kick' | 'playerHit' | 'enemyKo' | 'bossWarning' | 'stageClear' | 'victory' | 'gameOver';
