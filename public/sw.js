@@ -1,5 +1,5 @@
 const PREFIX='streetbrawl-';
-const CACHE=`${PREFIX}v8-release-1.2.3`;
+const CACHE=`${PREFIX}v9-release-1.2.4`;
 const CORE=['/','/manifest.webmanifest','/icons/icon.svg','/assets/fighters/alex.svg','/assets/fighters/thug.svg','/assets/fighters/ripper.svg','/assets/fighters/bruno.svg','/assets/fighters/dock-master.svg','/assets/stages/stage1-street.svg','/assets/stages/stage2-docks.svg'];
 const AUDIO=['/assets/audio/music/select-your-hero.mp3','/assets/audio/music/three-note-riff.mp3','/assets/audio/music/neon-city-dusk.mp3','/assets/audio/music/harbor-arpeggio.mp3','/assets/audio/music/final-boss-battle.mp3'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE))));
