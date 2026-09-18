@@ -72,9 +72,23 @@ export class CoopClient extends EventTarget {
 
   async createRoom() {
     if (!this.endpoint) throw new Error('Backend co-op non configurato');
-    const response = await fetch(`${this.endpoint}/rooms`, { method: 'POST' });
-    if (!response.ok) throw new Error(`Creazione stanza fallita (${response.status})`);
-    return ((await response.json()) as { room: string }).room;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8_000);
+    try {
+      const health = await fetch(`${this.endpoint}/health`, { cache: 'no-store', signal: controller.signal });
+      if (!health.ok) throw new Error(`Server multiplayer non disponibile (health ${health.status})`);
+      const response = await fetch(`${this.endpoint}/rooms`, { method: 'POST', signal: controller.signal });
+      if (!response.ok) throw new Error(`Creazione stanza fallita (${response.status})`);
+      const payload = (await response.json()) as { room?: string };
+      if (!payload.room || !/^[A-Z2-9]{6}$/.test(payload.room)) throw new Error('Risposta non valida dal server multiplayer');
+      return payload.room;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw new Error('Server multiplayer non raggiungibile (timeout)');
+      if (error instanceof TypeError) throw new Error('Server multiplayer non raggiungibile. Verifica il deploy del Worker.');
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   connect(room: string, nickname: string): Promise<void> {
