@@ -13,7 +13,7 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 type InputTarget = { setVirtualKey: (code: string, down: boolean) => void; resetInput: () => void };
 type CampaignClient = CoopClient | LocalCampaignClient;
 
-const VERSION = '1.2.1-review-fixes';
+const VERSION = '1.2.2-reconnect-preload';
 let installPrompt: InstallPromptEvent | null = null;
 const root = document.querySelector<HTMLDivElement>('#app');
 if (!root) throw new Error('Missing #app root');
@@ -22,7 +22,7 @@ root.innerHTML = `<main class="shell">
 <section id="splash" class="cover"><div class="panel"><h1>STREETBRAWL</h1><p id="load-status">Preparazione…</p><div class="progress"><i id="load-bar"></i></div><strong id="load-value">0 / 5</strong><div id="load-error" class="load-error" hidden></div><div class="cover-actions"><button id="retry" hidden>RIPROVA</button><button id="silent" hidden>CONTINUA SENZA AUDIO</button><button id="enter" hidden>ENTRA</button></div></div></section>
 <section id="menu" class="cover" hidden><div class="panel menu-panel"><h1>STREETBRAWL</h1><p>L’ultima partita.</p><small>v${VERSION}</small><button id="play" class="primary">GIOCA SOLO</button><button id="coop" class="primary">CO-OP ONLINE</button><label>MUSICA <input id="music-volume" type="range" min="0" max="100"></label><label>EFFETTI <input id="sfx-volume" type="range" min="0" max="100"></label><label class="mute"><input id="mute" type="checkbox"> MUTE</label></div></section>
 <section id="coop-screen" class="cover" hidden></section>
-<header class="hud" hidden><strong>STREETBRAWL</strong><span>v${VERSION}</span><button id="fullscreen" type="button">FULLSCREEN</button></header>
+<header class="hud" hidden><strong>STREETBRAWL</strong><span>v${VERSION}</span><button id="fullscreen" type="button">FULLSCREEN</button><button id="game-menu" type="button">MENU</button><button id="game-new" type="button">NUOVA PARTITA</button></header>
 <canvas id="game" width="1280" height="720" aria-label="StreetBrawl game canvas" hidden></canvas>
 <div class="touch-controls" hidden aria-hidden="true"><div id="joystick-zone" class="joystick-zone"><div id="joystick" class="joystick"><div class="joystick-ring"></div><div id="joystick-knob" class="joystick-knob"></div></div></div><div class="actions"><button data-key="Space" class="jump">JUMP</button><button data-key="KeyZ">PUNCH</button><button data-key="KeyX">KICK</button></div></div>
 <section id="install-card" class="install-card" hidden><button id="install-close" class="install-close">×</button><img src="/icons/icon.svg" alt=""><div><strong>Installa StreetBrawl</strong><p>Gioca come un'app direttamente dalla Home.</p><div class="install-actions"><button id="install-now">INSTALLA APP</button><button id="install-later">Più tardi</button></div></div></section>
@@ -40,6 +40,8 @@ let storySeenIntro = false;
 let storyQueue = Promise.resolve();
 let onlineStoryListener: ((event: Event) => void) | null = null;
 const onlineScenesQueued = new Set<string>();
+let narrativeGeneration = 0;
+let activeClient: CampaignClient | null = null;
 
 const splash = $<HTMLElement>('#splash');
 const menu = $<HTMLElement>('#menu');
@@ -61,12 +63,17 @@ const showPlaySurface = () => {
 };
 
 const showMenu = async () => {
+  narrativeGeneration++;
+  story.cancel();
+  onlineScenesQueued.clear();
+  storyQueue = Promise.resolve();
   coopGame?.stop();
   coopGame = null;
   if (onlineStoryListener) { coopLobby?.getClient?.().removeEventListener('message', onlineStoryListener); onlineStoryListener = null; }
   localClient?.stop();
   localClient = null;
   inputTarget = idleInput;
+  activeClient = null;
   splash.hidden = true;
   canvas.hidden = true;
   $('.hud').setAttribute('hidden', '');
@@ -82,20 +89,29 @@ const queueStory = (work: () => Promise<void>) => {
 };
 
 const presentStory = async (client: CampaignClient, sceneId: string, card: StoryScene) => {
+  const generation = narrativeGeneration;
   if (client instanceof LocalCampaignClient) client.sceneEnter(sceneId);
-  await story.show(card);
-  client.sceneReady(sceneId);
+  if (client instanceof CoopClient && client.activeScene !== sceneId) return;
+  if (!(client instanceof CoopClient && client.activeSceneReady)) {
+    await story.show(card);
+    if (generation !== narrativeGeneration) return;
+    if (client instanceof CoopClient && client.activeScene !== sceneId) return;
+    try { client.sceneReady(sceneId); } catch { return; }
+  }
   if (client instanceof CoopClient) {
     await new Promise<void>(resolve => {
-      if (client.activeScene !== sceneId) { resolve(); return; }
-      const done = (event: Event) => {
-        const message = (event as CustomEvent<import('./shared/protocol').ServerMessage>).detail;
-        if (message.type === 'scene' && message.sceneId === sceneId && !message.active) {
-          client.removeEventListener('message', done);
+      const reconcile = () => {
+        if (generation !== narrativeGeneration || client.activeScene !== sceneId) {
+          client.removeEventListener('narrative-state', reconcile);
+          client.removeEventListener('reconnect-expired', reconcile);
+          client.removeEventListener('session-replaced', reconcile);
           resolve();
         }
       };
-      client.addEventListener('message', done);
+      client.addEventListener('narrative-state', reconcile);
+      client.addEventListener('reconnect-expired', reconcile);
+      client.addEventListener('session-replaced', reconcile);
+      reconcile();
     });
   }
 };
@@ -113,10 +129,12 @@ const handleAudio = (event: CoopAudioEvent) => {
 };
 
 const startCampaignGame = async (client: CampaignClient, startLocal = false) => {
+  activeClient = client;
   if (client instanceof LocalCampaignClient) await showOpening(client);
   inputTarget.resetInput();
   coopGame?.stop();
   coopGame = new CoopGame(canvas, client);
+  await coopGame.preload();
 
   const presentSceneId = (sceneId: string) => {
     if (onlineScenesQueued.has(sceneId)) return;
@@ -174,6 +192,44 @@ const workerEndpoint = (window as unknown as { STREETBRAWL_COOP_ENDPOINT?: strin
   localStorage.getItem('streetbrawl-coop-endpoint') || 'https://streetbrawl-coop.workers.dev';
 const coopLobby = new CoopLobby(coopScreen, { endpoint: workerEndpoint, onBack: () => void showMenu(), onStarted: client => void startCoopGame(client) });
 const soloLobby = new SoloLobby(coopScreen, () => void showMenu(), character => void startLocalGame(character));
+
+
+$('#game-menu').addEventListener('click', () => {
+  if (activeClient instanceof CoopClient) activeClient.close();
+  void showMenu();
+});
+$('#game-new').addEventListener('click', () => {
+  const wasCoop = activeClient instanceof CoopClient;
+  if (activeClient instanceof CoopClient) activeClient.close();
+  narrativeGeneration++;
+  story.cancel();
+  coopGame?.stop();
+  localClient?.stop();
+  activeClient = null;
+  canvas.hidden = true;
+  $('.hud').setAttribute('hidden', '');
+  $('.touch-controls').setAttribute('hidden', '');
+  menu.hidden = true;
+  if (wasCoop) coopLobby.showHome();
+  else soloLobby.show();
+});
+coopLobby.getClient().addEventListener('session-replaced', () => {
+  narrativeGeneration++;
+  story.cancel();
+  coopGame?.stop();
+  coopGame = null;
+  inputTarget = idleInput;
+  canvas.hidden = true;
+  $('.hud').setAttribute('hidden', '');
+  $('.touch-controls').setAttribute('hidden', '');
+  coopScreen.hidden = false;
+  coopScreen.innerHTML = '<div class="panel coop-panel"><h2>SESSIONE SPOSTATA</h2><p>Sessione aperta su un altro dispositivo.</p><div class="coop-actions"><button id="replaced-menu">TORNA AL MENU</button></div></div>';
+  coopScreen.querySelector('#replaced-menu')?.addEventListener('click', () => void showMenu());
+});
+coopLobby.getClient().addEventListener('reconnect-expired', () => {
+  narrativeGeneration++;
+  story.cancel();
+});
 
 const preload = async () => {
   retry.hidden = silent.hidden = enter.hidden = true;
