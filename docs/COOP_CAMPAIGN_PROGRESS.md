@@ -93,6 +93,15 @@ Automated coverage is still incomplete for the requested full browser/room matri
 
 Two independent real browsers and the public Worker endpoint remain outside automated acceptance: **NON VERIFICATO END-TO-END**.
 
+## Animation / game-feel pass — 1.2.3
+
+- Added precisely cropped movement art for Alex, Matt, Elisa and Gaga: four walk poses plus one dedicated jump pose each.
+- Added matching movement art for Thug, Ripper and Heavy; Heavy now has its own walk silhouette instead of falling back to Thug art.
+- Kept existing combat/hurt/KO art for states not covered by the approved movement sheets, avoiding character morphs from inconsistent generated attack/hit rows.
+- Movement sheet bounds and animation cardinality are checked in CI against the real PNG dimensions.
+- Renderer interpolation now derives its window from the observed authoritative snapshot interval, reducing the visible accelerate/pause effect caused by timing jitter without introducing prediction.
+- Asset and Service Worker generations rotated to 1.2.3.
+
 ## Consolidation backlog — next pass
 
 These are deliberately separated from feature implementation and must be reviewed before the PR is considered release-ready:
@@ -104,10 +113,10 @@ These are deliberately separated from feature implementation and must be reviewe
 - Consolidate procedural combat SFX and soundtrack controls behind one mute/volume policy; deduplicate predicted/confirmed effects.
 - Add committed lockfiles, switch CI to `npm ci`, and complete room/browser smoke coverage (simulation regression tests are now present).
 - Verify continue/get-up/invulnerability, stage healing, boss balance and six-stage end-to-end progression.
-- Verify atlas pivots/cropping/facing and replace temporary legacy fallbacks where necessary.
+- Continue replacing temporary combat/hurt/KO legacy fallbacks as approved matching art becomes available; movement pivots/cropping are now regression-tested.
 - Run real Android/iPad landscape/fullscreen/safe-area/PWA tests.
 - Measure snapshot payloads and move toward compact deltas/events if network profiling shows it is necessary.
 
 ## Verification policy
 
-Public online multiplayer remains **unverified** until a deployed backend has been exercised from separate clients. Automated build/typecheck, browser tests, network-emulated tests and real-device tests must be reported separately. PR #3 stays open and unmerged during consolidation.
+Public online multiplayer remains **unverified** until a deployed backend has been exercised from separate clients. Automated build/typecheck, browser tests, network-emulated tests and real-device tests must be reported separately. PR #3 was merged after green browser/Worker CI; deployed public Worker + separate physical-device acceptance remains **NON VERIFICATO END-TO-END**.
