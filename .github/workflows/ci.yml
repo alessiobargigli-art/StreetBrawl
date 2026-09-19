@@ -40,7 +40,7 @@ jobs:
         working-directory: worker
         run: npm ci
       - name: Validate single-origin Cloudflare config
-        run: npm --prefix worker exec wrangler -- deploy --config ../wrangler.jsonc --dry-run
+        run: ./worker/node_modules/.bin/wrangler deploy --config wrangler.jsonc --dry-run
 
       - name: Run room scene/reconnect regression tests
         working-directory: worker
