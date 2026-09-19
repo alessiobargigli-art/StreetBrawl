@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "dev": "wrangler dev",
-    "deploy": "npm --prefix .. run build && wrangler deploy"
+    "dev": "wrangler dev --config ../wrangler.jsonc",
+    "deploy": "npm --prefix .. run build && wrangler deploy --config ../wrangler.jsonc"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
