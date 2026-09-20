@@ -5,10 +5,12 @@ Browser beat 'em up inspired by classic 2.5D arcade brawlers, built as an origin
 ## Vertical slice
 
 - TypeScript + Vite + Canvas 2D, fixed-step 60 Hz simulation
-- Two scrolling stages, encounter waves and two bosses
+- Six scrolling stages, sequential encounter waves and six bosses (solo and co-op share the same authoritative campaign)
 - Keyboard and floating mobile joystick controls
 - PWA install/fullscreen support
-- Version visible in game: `1.2.3-animation-gamefeel`
+- Version visible in game: see `VERSION` in `src/main.ts` (currently `1.2.7-single-origin`)
+
+See `docs/COOP_CAMPAIGN_PROGRESS.md` for the full six-stage campaign structure, feature status and known verification gaps.
 
 ## Animation / game feel
 
@@ -29,11 +31,13 @@ The audio loader downloads all five tracks before normal menu entry, reports mea
 
 | Phase | Asset |
 | --- | --- |
-| Menu | `/assets/audio/music/menu.mp3` |
-| Stage 1 — The Streets | `/assets/audio/music/stage-1.mp3` |
-| Bruno | `/assets/audio/music/boss-1.mp3` |
-| Stage 2 — Harbor Docks | `/assets/audio/music/stage-2.mp3` |
-| Dock Master | `/assets/audio/music/boss-2.mp3` |
+| Menu | `/assets/audio/music/select-your-hero.mp3` |
+| Stage 1 | `/assets/audio/music/neon-city-dusk.mp3` |
+| Bruno | `/assets/audio/music/three-note-riff.mp3` |
+| Stage 5 — Harbor | `/assets/audio/music/harbor-arpeggio.mp3` |
+| Dock Master | `/assets/audio/music/final-boss-battle.mp3` |
+
+Only five tracks exist today; stages 2-4 currently reuse the closest available theme until dedicated tracks are supplied (see "Audio mapping" in `docs/COOP_CAMPAIGN_PROGRESS.md`).
 
 The service worker uses a StreetBrawl-owned versioned cache, never returns the HTML shell for non-navigation assets, caches successful audio downloads for later/offline sessions and serves cached MP3 byte ranges when requested by the browser audio element. Cache write failure is non-fatal for the current session.
 
