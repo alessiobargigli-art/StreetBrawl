@@ -29,7 +29,7 @@ The campaign is data-driven: six stages, sequential encounters, reinforcement wa
 - [x] Imported playable/boss sprite atlases and co-op renderer integration.
 - [x] Six distinct narrative environments.
 - [x] Intro, inter-stage clues and finale for **StreetBrawl — L'ultima partita**.
-- [x] Automatic reconnect attempts with persisted reconnect token and 30-second grace contract.
+- [x] Automatic reconnect attempts with a reconnect token persisted client-side (`localStorage`) and a 30-second grace contract. The token itself is **not** durable server-side: `GameRoom` keeps sessions/reconnect records only in in-memory `Map`s (no `DurableObjectState.storage` usage yet), so a Durable Object eviction/restart during the grace window still drops the room — see `worker/README.md` and the consolidation backlog below.
 - [x] Protocol migration path for authoritative facing/action-start synchronization.
 - [x] Mobile landscape controls, floating joystick, fullscreen/PWA surfaces retained.
 - [x] Browser build CI plus authoritative Worker/shared-simulation typecheck added.
@@ -107,6 +107,7 @@ Two independent real browsers and the public Worker endpoint remain outside auto
 These are deliberately separated from feature implementation and must be reviewed before the PR is considered release-ready:
 
 - Replace the placeholder/unverified Worker endpoint with the real deployed backend configuration; do not claim public online play before this is tested.
+- Persist room/session/reconnect state in `DurableObjectState.storage` so an evicted or restarted `GameRoom` does not silently drop active rooms; today all of it lives in in-memory `Map`s.
 - Exercise create/join/reconnect with two independent devices/sessions under latency, jitter and packet loss.
 - Finish local movement prediction/reconciliation and make authoritative `facing` / `actionStartedTick` mandatory after both client and Worker are migrated together.
 - Verify late join only at a safe encounter boundary and improve visible reconnect/grace UX.

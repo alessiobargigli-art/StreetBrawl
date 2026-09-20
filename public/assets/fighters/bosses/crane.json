@@ -9,10 +9,10 @@
     {
       "index": 0,
       "rect": {
-        "x": 12,
-        "y": 2,
-        "w": 73,
-        "h": 112
+        "x": 10,
+        "y": 1,
+        "w": 77,
+        "h": 115
       },
       "sourceSize": {
         "w": 768,
@@ -30,10 +30,10 @@
     {
       "index": 1,
       "rect": {
-        "x": 80,
-        "y": 2,
-        "w": 100,
-        "h": 114
+        "x": 98,
+        "y": 0,
+        "w": 83,
+        "h": 116
       },
       "sourceSize": {
         "w": 768,
@@ -51,10 +51,10 @@
     {
       "index": 2,
       "rect": {
-        "x": 171,
-        "y": 5,
-        "w": 116,
-        "h": 110
+        "x": 189,
+        "y": 3,
+        "w": 96,
+        "h": 113
       },
       "sourceSize": {
         "w": 768,
@@ -72,10 +72,10 @@
     {
       "index": 3,
       "rect": {
-        "x": 268,
-        "y": 2,
-        "w": 121,
-        "h": 114
+        "x": 286,
+        "y": 5,
+        "w": 97,
+        "h": 111
       },
       "sourceSize": {
         "w": 768,
@@ -93,10 +93,10 @@
     {
       "index": 4,
       "rect": {
-        "x": 371,
+        "x": 385,
         "y": 0,
-        "w": 124,
-        "h": 115
+        "w": 92,
+        "h": 116
       },
       "sourceSize": {
         "w": 768,
@@ -114,10 +114,10 @@
     {
       "index": 5,
       "rect": {
-        "x": 484,
-        "y": 13,
-        "w": 108,
-        "h": 102
+        "x": 483,
+        "y": 11,
+        "w": 79,
+        "h": 106
       },
       "sourceSize": {
         "w": 768,
@@ -135,10 +135,10 @@
     {
       "index": 6,
       "rect": {
-        "x": 574,
-        "y": 84,
-        "w": 112,
-        "h": 32
+        "x": 566,
+        "y": 82,
+        "w": 109,
+        "h": 35
       },
       "sourceSize": {
         "w": 768,
@@ -156,10 +156,10 @@
     {
       "index": 7,
       "rect": {
-        "x": 668,
-        "y": 38,
-        "w": 90,
-        "h": 77
+        "x": 684,
+        "y": 37,
+        "w": 77,
+        "h": 80
       },
       "sourceSize": {
         "w": 768,
@@ -269,7 +269,6 @@
     }
   },
   "notes": [
-    "Frames are manually bounded from source pose regions and may overlap where limbs cross theoretical cells.",
-    "Missing in-between frames use explicit source-pose fallbacks; they are not claimed as completed animation art."
+    "Frames rebuilt from isolated transparent poses with non-overlapping bounds and explicit gutters, matching the coop hero atlas convention."
   ]
 }
