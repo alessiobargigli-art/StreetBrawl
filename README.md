@@ -8,7 +8,7 @@ Browser beat 'em up inspired by classic 2.5D arcade brawlers, built as an origin
 - Six scrolling stages, sequential encounter waves and six bosses (solo and co-op share the same authoritative campaign)
 - Keyboard and floating mobile joystick controls
 - PWA install/fullscreen support
-- Version visible in game: see `VERSION` in `src/main.ts` (currently `1.2.7-single-origin`)
+- Version visible in game: see `VERSION` in `src/main.ts` (currently `1.2.8-icon-refresh`)
 
 See `docs/COOP_CAMPAIGN_PROGRESS.md` for the full six-stage campaign structure, feature status and known verification gaps.
 
