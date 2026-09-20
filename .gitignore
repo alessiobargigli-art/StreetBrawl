@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.wrangler/
+test-results/
+playwright-report/
+.test-dist/
+.test-client/
+.test-game/
+.test-room/
+*.log
+.DS_Store
